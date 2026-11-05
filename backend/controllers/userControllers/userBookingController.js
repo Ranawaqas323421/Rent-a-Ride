@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import crypto from "node:crypto";
 import Booking from "../../models/BookingModel.js";
 import { errorHandler } from "../../utils/error.js";
 import Razorpay from "razorpay";
@@ -8,10 +9,6 @@ import nodemailer from "nodemailer";
 
 export const BookCar = async (req, res, next) => {
   try {
-    if (!req.body) {
-      next(errorHandler(401, "bad request on body"));
-    }
-
     const {
       user_id,
       vehicle_id,
@@ -23,7 +20,77 @@ export const BookCar = async (req, res, next) => {
       pickup_district,
       razorpayPaymentId,
       razorpayOrderId,
-    } = req.body;
+      razorpaySignature,
+    } = req.body || {};
+
+    if (
+      !user_id ||
+      !vehicle_id ||
+      !pickupDate ||
+      !dropoffDate ||
+      !pickup_location ||
+      !dropoff_location ||
+      !pickup_district ||
+      !razorpayPaymentId ||
+      !razorpayOrderId ||
+      !razorpaySignature ||
+      !Number.isFinite(Number(totalPrice)) ||
+      Number(totalPrice) <= 0
+    ) {
+      return next(errorHandler(400, "Missing or invalid booking/payment details"));
+    }
+
+    if (
+      !mongoose.Types.ObjectId.isValid(user_id) ||
+      !mongoose.Types.ObjectId.isValid(vehicle_id)
+    ) {
+      return next(errorHandler(400, "Invalid user or vehicle ID"));
+    }
+
+    const pickup = new Date(pickupDate);
+    const dropoff = new Date(dropoffDate);
+    if (
+      Number.isNaN(pickup.getTime()) ||
+      Number.isNaN(dropoff.getTime()) ||
+      pickup >= dropoff
+    ) {
+      return next(errorHandler(400, "Invalid pickup/drop-off date range"));
+    }
+
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_SECRET) {
+      return next(errorHandler(503, "Payment service is not configured"));
+    }
+
+    // Verify the checkout signature and confirm that Razorpay reports a captured
+    // payment for this exact order and amount before writing a booking.
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_SECRET)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+      .digest("hex");
+    const expectedBuffer = Buffer.from(expectedSignature, "utf8");
+    const receivedBuffer = Buffer.from(String(razorpaySignature), "utf8");
+
+    if (
+      expectedBuffer.length !== receivedBuffer.length ||
+      !crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
+    ) {
+      return next(errorHandler(400, "Payment signature verification failed"));
+    }
+
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_SECRET,
+    });
+    const payment = await razorpay.payments.fetch(razorpayPaymentId);
+
+    if (
+      payment.status !== "captured" ||
+      payment.order_id !== razorpayOrderId ||
+      payment.amount !== Math.round(Number(totalPrice) * 100) ||
+      payment.currency !== "INR"
+    ) {
+      return next(errorHandler(400, "Payment is not captured for this booking amount"));
+    }
 
     const book = new Booking({
       pickupDate,
@@ -76,7 +143,7 @@ export const razorpayOrder = async (req, res, next) => {
     });
 
     const options = {
-      amount: totalPrice * 100, // amount in smallest currency unit
+      amount: Math.round(Number(totalPrice) * 100), // amount in paise
       currency: "INR",
     };
 
