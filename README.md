@@ -107,7 +107,7 @@ Configure backend environment variables in the hosting provider's secret/environ
 
 ## Important security review items
 
-Before using this application with real customers or payments, review and test server-side authorization for user, admin, and vendor routes; verify Razorpay payment signatures before creating bookings; derive booking ownership from the authenticated user rather than request-body IDs; validate all request data; and restrict email sending to authenticated booking owners. Frontend route guards alone do not secure API endpoints.
+Razorpay checkout signatures and captured payment status are now checked by the booking API before a booking is saved. Before using this application with real customers, still review and test server-side authorization for user, admin, and vendor routes; derive booking ownership from the authenticated user rather than request-body IDs; validate all request data; and restrict email sending to authenticated booking owners. Frontend route guards alone do not secure API endpoints.
 
 ## Tech stack
 
