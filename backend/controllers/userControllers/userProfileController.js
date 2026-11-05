@@ -6,6 +6,9 @@ import { errorHandler } from "../../utils/error.js";
 export const editUserProfile = async (req, res, next) => {
   try {
     const userId = req.params.id;
+    if (!req.user || String(req.user._id) !== String(userId)) {
+      return next(errorHandler(403, "You can only update your own profile"));
+    }
     const updatedProfileData = req.body.formData;
 
     const updatedUser = await User.findByIdAndUpdate(
