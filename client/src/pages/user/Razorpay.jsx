@@ -72,8 +72,8 @@ export async function displayRazorpay(values, navigate, dispatch) {
 
     const data = await result.json();
 
-    if (!data.ok) {
-      toast.error(data?.message);
+    if (!result.ok) {
+      toast.error(data?.message || "Unable to create a payment order.");
       return;
     }
 
@@ -81,7 +81,7 @@ export async function displayRazorpay(values, navigate, dispatch) {
     const { amount, id, currency } = data;
 
     const options = {
-      key: import.meta.env.RAZORPAY_KEY_ID,
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
       amount: amount.toString(),
       currency: currency,
       name: "Rent a Ride",
