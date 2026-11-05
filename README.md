@@ -51,7 +51,7 @@ cp .env.example .env
 npm run dev
 ```
 
-The Vite development server uses `http://localhost:5173` by default and proxies `/api` requests to the backend. Set `VITE_PRODUCTION_BACKEND_URL` in `client/.env` only when the API is hosted somewhere other than `http://localhost:3000`.
+The Vite development server uses `http://localhost:5173` by default and proxies `/api` requests to the backend. Set `VITE_PRODUCTION_BACKEND_URL` in `client/.env` only when the API is hosted somewhere other than `http://localhost:3000`. The deployed Vercel frontend uses the `/api` rewrite in `client/vercel.json`; update its destination if your backend host changes.
 
 Build the frontend:
 
@@ -84,6 +84,7 @@ npm run build
 | --- | --- |
 | `VITE_PRODUCTION_BACKEND_URL` | Optional backend URL used by the Vite development proxy |
 | `VITE_RAZORPAY_KEY_ID` | Public Razorpay key ID used by the checkout UI |
+| `VITE_FIREBASE_API_KEY` | Firebase Web API key used by Google sign-in |
 
 Only public values should use the `VITE_` prefix. Never put database credentials, JWT secrets, Cloudinary API secrets, or the Razorpay secret in frontend variables.
 
@@ -103,7 +104,7 @@ Run these from `client/`:
 
 ## Deployment notes
 
-Configure backend environment variables in the hosting provider's secret/environment settings. Configure the frontend environment variables in the frontend hosting provider. Update `CLIENT_URL` to include the exact deployed frontend origin(s).
+Configure backend environment variables in the hosting provider's secret/environment settings. Configure the frontend environment variables in the frontend hosting provider, including `VITE_RAZORPAY_KEY_ID` and `VITE_FIREBASE_API_KEY` when those sign-in/payment methods are enabled. Update `CLIENT_URL` to include the exact deployed frontend origin(s). For local development, copy `.env.example` to `.env` at the repository root and copy `client/.env.example` to `client/.env`; fill in your own values.
 
 ## Important security review items
 
