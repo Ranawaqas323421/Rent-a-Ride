@@ -103,8 +103,14 @@ export async function displayRazorpay(values, navigate, dispatch) {
           },
           body: JSON.stringify(dbData),
         });
-        const successStatus = await result.json();
-        if (successStatus) {
+        const bookingResult = await result.json();
+        if (!result.ok) {
+          toast.error(bookingResult?.message || "Payment succeeded, but the booking could not be saved. Please contact support.");
+          dispatch(setPageLoading(false));
+          return;
+        }
+
+        if (result.ok) {
           dispatch(setIsSweetAlert(true));
 
           //1. when payment is successfull fetch latest bookigns
