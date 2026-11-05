@@ -88,6 +88,41 @@ npm run build
 
 Only public values should use the `VITE_` prefix. Never put database credentials, JWT secrets, Cloudinary API secrets, or the Razorpay secret in frontend variables.
 
+## Run the project health check
+
+Open two terminals from the repository root:
+
+1. Start the backend in the first terminal:
+
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+2. Run the health-check script in the second terminal:
+
+   ```bash
+   bash scripts/health-check.sh
+   ```
+
+The script checks the MongoDB connection using the root `.env` value `mongo_uri`, checks the backend `/health` endpoint (default `http://localhost:3000/health`), and runs the frontend production build. It prints PASS/FAIL results and exits with a non-zero status if a required check fails.
+
+Optional: to also check whether a frontend server is responding, start it in another terminal and set its URL when running the script:
+
+```bash
+cd client && npm install && npm run dev
+# In another terminal, from the repository root:
+FRONTEND_URL=http://localhost:5173 bash scripts/health-check.sh
+```
+
+If your backend uses a different port, set `BACKEND_HEALTH_URL`, for example:
+
+```bash
+BACKEND_HEALTH_URL=http://localhost:4000/health bash scripts/health-check.sh
+```
+
+This script checks connectivity and frontend compilation; it does not perform full login, booking, or Razorpay end-to-end tests.
+
 ## Available scripts
 
 Run these from the repository root:
