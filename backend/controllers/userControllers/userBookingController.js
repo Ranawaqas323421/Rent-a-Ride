@@ -92,6 +92,11 @@ export const BookCar = async (req, res, next) => {
       return next(errorHandler(400, "Payment is not captured for this booking amount"));
     }
 
+    const authenticatedUserId = req.user?._id;
+    if (!authenticatedUserId || String(authenticatedUserId) !== String(user_id)) {
+      return next(errorHandler(403, "Booking user does not match authenticated account"));
+    }
+
     const book = new Booking({
       pickupDate,
       dropOffDate: dropoffDate,
@@ -180,7 +185,7 @@ export const getVehiclesWithoutBooking = async (req, res, next) => {
       dropOffDate
     );
 
-    if (!vehiclesAvailableAtDate) {
+    if (!vehiclesAvailableAtDate || vehiclesAvailableAtDate.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No vehicles available for the specified time period.",
@@ -194,7 +199,7 @@ export const getVehiclesWithoutBooking = async (req, res, next) => {
         cur.isDeleted === "false"
     );
 
-    if (!availableVehicles) {
+    if (availableVehicles.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No vehicles available at this location.",
@@ -347,8 +352,8 @@ export const findBookingsOfUser = async (req, res, next) => {
       next(errorHandler(409, "_id of user is required"));
       return;
     }
-    const { userId } = req.body;
-    const convertedUserId = new mongoose.Types.ObjectId(userId);
+    const convertedUserId = req.user?._id;
+    if (!convertedUserId) return next(errorHandler(401, "Authentication required"));
 
     const bookings = await Booking.aggregate([
       {
@@ -385,9 +390,8 @@ export const findBookingsOfUser = async (req, res, next) => {
 //api to ge the latestbookings details
 export const latestbookings = async (req, res, next) => {
   try {
-    const { user_id } = req.body;
-    console.log(user_id);
-    const convertedUserId = new mongoose.Types.ObjectId(user_id);
+    const convertedUserId = req.user?._id;
+    if (!convertedUserId) return next(errorHandler(401, "Authentication required"));
 
     const bookings = await Booking.aggregate([
       {
