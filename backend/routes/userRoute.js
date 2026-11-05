@@ -12,21 +12,21 @@ const router = express.Router()
 
 //Removed verifyToken middleware because of (cors) unable to set and access cookie since i am using free domain from vercel
 
-router.post('/update/:id',updateUser)
-router.delete('/delete/:id',deleteUser)
+router.post('/update/:id',verifyToken,updateUser)
+router.delete('/delete/:id',verifyToken,deleteUser)
 router.get('/signout',signOut)
 router.get('/listAllVehicles',listAllVehicles)
 router.post('/showVehicleDetails',showVehicleDetails)
-router.post('/editUserProfile/:id',editUserProfile)
+router.post('/editUserProfile/:id',verifyToken,editUserProfile)
 // router.post('/searchCar',searchCar)
 // router.post('/checkAvailability',checkAvailability)
 router.post('/razorpay',verifyToken,razorpayOrder)
-router.post('/bookCar',BookCar)
+router.post('/bookCar',verifyToken,BookCar)
 router.post('/filterVehicles',filterVehicles)
 router.post('/getVehiclesWithoutBooking',getVehiclesWithoutBooking,showAllVariants)
 router.post('/showSingleofSameModel',getVehiclesWithoutBooking,showOneofkind)
-router.post('/findBookingsOfUser',findBookingsOfUser)
-router.post('/latestbookings',latestbookings)
+router.post('/findBookingsOfUser',verifyToken,findBookingsOfUser)
+router.post('/latestbookings',verifyToken,latestbookings)
 router.post('/sendBookingDetailsEamil',sendBookingDetailsEamil)
 
 
