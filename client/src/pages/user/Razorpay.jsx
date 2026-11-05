@@ -22,10 +22,13 @@ export function loadScript(src) {
 //function to fetch latest bookings from db and update it to redux
 export const fetchLatestBooking = async (user_id, dispatch) => {
   try {
+    const refreshToken = localStorage.getItem("refreshToken");
+    const accessToken = localStorage.getItem("accessToken");
     const response = await fetch("/api/user/latestbookings", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${refreshToken || ""},${accessToken || ""}`,
       },
       body: JSON.stringify({ user_id }),
     });
@@ -100,6 +103,7 @@ export async function displayRazorpay(values, navigate, dispatch) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${refreshToken || ""},${accessToken || ""}`,
           },
           body: JSON.stringify(dbData),
         });
