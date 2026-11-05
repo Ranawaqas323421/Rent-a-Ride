@@ -1,10 +1,14 @@
 import vehicle from "../../models/vehicleModel.js";
+import Booking from "../../models/BookingModel.js";
 import { errorHandler } from "../../utils/error.js";
 
 //show all vehicles to user
 export const listAllVehicles = async (req, res, next) => {
   try {
-    const vehicles = await vehicle.find();
+    const vehicles = await vehicle.find({
+      isDeleted: "false",
+      isAdminApproved: { $ne: false },
+    });
 
     if (!vehicles) {
       return next(errorHandler(404, "no vehicles found"));
