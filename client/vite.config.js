@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         "/api": {
-          target: env.VITE_PRODUCTION_BACKEND_URL || "http://localhost:3000",
+          target: env.VITE_PRODUCTION_BACKEND_URL || "http://18.204.4.86:3000",
           changeOrigin: true,
           secure: false,
         },
