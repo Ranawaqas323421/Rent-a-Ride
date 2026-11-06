@@ -73,7 +73,7 @@ export const signUp = async (req, res, next) => {
     });
 
     await newUser.save();
-    return res.status(201).json({ message: "newUser added successfully" });
+    return res.status(200).json({ message: "newUser added successfully" });
   } catch (error) {
     if (error.code === 11000) {
       return next(errorHandler(409, "Email or username is already in use"));
