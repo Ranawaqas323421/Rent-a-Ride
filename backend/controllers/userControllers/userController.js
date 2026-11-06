@@ -28,8 +28,8 @@ export const updateUser = async (req, res, next) => {
     }
 
     if (typeof req.body?.password === "string" && req.body.password.length > 0) {
-      if (req.body.password.length < 4 || req.body.password.length > 128) {
-        return next(errorHandler(400, "Password must be between 4 and 128 characters"));
+      if (req.body.password.length < 8 || req.body.password.length > 128) {
+        return next(errorHandler(400, "Password must be between 8 and 128 characters"));
       }
       updates.password = await bcryptjs.hash(req.body.password, 10);
       // A password change invalidates the stored refresh session.
