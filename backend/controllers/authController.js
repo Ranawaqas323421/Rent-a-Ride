@@ -56,10 +56,10 @@ export const signUp = async (req, res, next) => {
       username.length > 50 ||
       !emailPattern.test(email) ||
       typeof password !== "string" ||
-      password.length < 4 ||
+      password.length < 8 ||
       password.length > 128
     ) {
-      return next(errorHandler(400, "Username, valid email, and a 4-128 character password are required"));
+      return next(errorHandler(400, "Username, valid email, and a 8-128 character password are required"));
     }
 
     const hashedPassword = await bcryptjs.hash(password, 10);
