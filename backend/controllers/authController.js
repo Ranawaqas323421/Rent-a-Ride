@@ -174,6 +174,8 @@ export const adminSignIn = async (req, res, next) => {
   }
 };
 
+// Google OAuth currently trusts browser-supplied profile fields. Verify a Firebase ID token
+// server-side before allowing this endpoint to authenticate or create an account.
 export const google = async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body?.email);
