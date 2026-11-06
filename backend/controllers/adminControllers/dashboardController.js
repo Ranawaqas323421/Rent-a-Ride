@@ -206,7 +206,7 @@ export const editVehicle = async (req, res, next) => {
           district: vehicleDistrict,
         },
 
-        { new: true }
+        { new: true, runValidators: true }
       );
       if (!edited) {
         return next(errorHandler(404, "data with this id not found"));

@@ -14,7 +14,7 @@ const schema = z.object({
     .refine((value) => /\S+@\S+\.\S+/.test(value), {
       message: "Invalid email address",
     }),
-  password: z.string().min(4, { message: "minimum 4 characters required" }),
+  password: z.string().min(8, { message: "minimum 8 characters required" }),
 });
 
 function VendorSignup() {
@@ -103,7 +103,7 @@ function VendorSignup() {
 
           <div>
             <input
-              type="text"
+              type="password"
               id="password"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="Password"

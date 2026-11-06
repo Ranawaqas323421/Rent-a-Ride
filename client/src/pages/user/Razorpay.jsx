@@ -22,10 +22,13 @@ export function loadScript(src) {
 //function to fetch latest bookings from db and update it to redux
 export const fetchLatestBooking = async (user_id, dispatch) => {
   try {
+    const refreshToken = localStorage.getItem("refreshToken");
+    const accessToken = localStorage.getItem("accessToken");
     const response = await fetch("/api/user/latestbookings", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${refreshToken || ""},${accessToken || ""}`,
       },
       body: JSON.stringify({ user_id }),
     });
@@ -72,8 +75,8 @@ export async function displayRazorpay(values, navigate, dispatch) {
 
     const data = await result.json();
 
-    if (!data.ok) {
-      toast.error(data?.message);
+    if (!result.ok) {
+      toast.error(data?.message || "Unable to create a payment order.");
       return;
     }
 
@@ -81,7 +84,7 @@ export async function displayRazorpay(values, navigate, dispatch) {
     const { amount, id, currency } = data;
 
     const options = {
-      key: import.meta.env.RAZORPAY_KEY_ID,
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
       amount: amount.toString(),
       currency: currency,
       name: "Rent a Ride",
@@ -100,11 +103,18 @@ export async function displayRazorpay(values, navigate, dispatch) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${refreshToken || ""},${accessToken || ""}`,
           },
           body: JSON.stringify(dbData),
         });
-        const successStatus = await result.json();
-        if (successStatus) {
+        const bookingResult = await result.json();
+        if (!result.ok) {
+          toast.error(bookingResult?.message || "Payment succeeded, but the booking could not be saved. Please contact support.");
+          dispatch(setPageLoading(false));
+          return;
+        }
+
+        if (result.ok) {
           dispatch(setIsSweetAlert(true));
 
           //1. when payment is successfull fetch latest bookigns

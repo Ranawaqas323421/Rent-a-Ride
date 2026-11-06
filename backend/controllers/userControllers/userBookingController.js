@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import crypto from "node:crypto";
 import Booking from "../../models/BookingModel.js";
 import { errorHandler } from "../../utils/error.js";
 import Razorpay from "razorpay";
@@ -8,10 +9,6 @@ import nodemailer from "nodemailer";
 
 export const BookCar = async (req, res, next) => {
   try {
-    if (!req.body) {
-      next(errorHandler(401, "bad request on body"));
-    }
-
     const {
       user_id,
       vehicle_id,
@@ -23,70 +20,278 @@ export const BookCar = async (req, res, next) => {
       pickup_district,
       razorpayPaymentId,
       razorpayOrderId,
-    } = req.body;
+      razorpaySignature,
+    } = req.body || {};
+
+    const authenticatedUserId = req.user?._id;
+    if (!authenticatedUserId) {
+      return next(errorHandler(401, "Authentication required"));
+    }
+
+    // Keep the existing client field for compatibility, but never use it as
+    // the source of the booking owner.
+    if (
+      user_id &&
+      (!mongoose.Types.ObjectId.isValid(user_id) ||
+        String(user_id) !== String(authenticatedUserId))
+    ) {
+      return next(errorHandler(403, "Booking user does not match authenticated account"));
+    }
+
+    const normalizedPickupLocation =
+      typeof pickup_location === "string" ? pickup_location.trim() : "";
+    const normalizedPickupDistrict =
+      typeof pickup_district === "string" ? pickup_district.trim() : "";
+    const normalizedDropoffLocation =
+      typeof dropoff_location === "string" ? dropoff_location.trim() : "";
+    const amount = Number(totalPrice);
+    const amountInPaise = Math.round(amount * 100);
+    if (
+      !vehicle_id ||
+      !pickupDate ||
+      !dropoffDate ||
+      typeof pickup_location !== "string" ||
+      !pickup_location.trim() ||
+      typeof dropoff_location !== "string" ||
+      !dropoff_location.trim() ||
+      typeof pickup_district !== "string" ||
+      !pickup_district.trim() ||
+      typeof razorpayPaymentId !== "string" ||
+      !razorpayPaymentId.trim() ||
+      typeof razorpayOrderId !== "string" ||
+      !razorpayOrderId.trim() ||
+      typeof razorpaySignature !== "string" ||
+      !/^[a-f0-9]{64}$/i.test(razorpaySignature) ||
+      !Number.isFinite(amount) ||
+      amount <= 0 ||
+      !Number.isSafeInteger(amountInPaise)
+    ) {
+      return next(errorHandler(400, "Missing or invalid booking/payment details"));
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(vehicle_id)) {
+      return next(errorHandler(400, "Invalid vehicle ID"));
+    }
+
+    const pickup = new Date(pickupDate);
+    const dropoff = new Date(dropoffDate);
+    if (
+      Number.isNaN(pickup.getTime()) ||
+      Number.isNaN(dropoff.getTime()) ||
+      pickup >= dropoff
+    ) {
+      return next(errorHandler(400, "Invalid pickup/drop-off date range"));
+    }
+
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_SECRET) {
+      return next(errorHandler(503, "Payment service is not configured"));
+    }
+
+    const vehicle = await Vehicle.findOne({
+      _id: vehicle_id,
+      isDeleted: "false",
+      isAdminApproved: true,
+    }).lean();
+
+    if (!vehicle) {
+      return next(errorHandler(404, "Vehicle is not available"));
+    }
+
+    if (
+      vehicle.location !== normalizedPickupLocation ||
+      vehicle.district !== normalizedPickupDistrict
+    ) {
+      return next(errorHandler(400, "Pickup location does not match the selected vehicle"));
+    }
+
+    const availableVehicles = await availableAtDate(pickup, dropoff);
+    if (!availableVehicles.some((availableVehicle) => String(availableVehicle._id) === String(vehicle_id))) {
+      return next(errorHandler(409, "Vehicle is no longer available for the selected dates"));
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_SECRET)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+      .digest("hex");
+    const expectedBuffer = Buffer.from(expectedSignature, "utf8");
+    const receivedBuffer = Buffer.from(razorpaySignature, "utf8");
+
+    if (
+      expectedBuffer.length !== receivedBuffer.length ||
+      !crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
+    ) {
+      return next(errorHandler(400, "Payment signature verification failed"));
+    }
+
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_SECRET,
+    });
+    const order = await razorpay.orders.fetch(razorpayOrderId);
+    const orderNotes = order.notes || {};
+
+    if (
+      order.amount !== amountInPaise ||
+      order.currency !== "INR" ||
+      orderNotes.userId !== String(authenticatedUserId) ||
+      orderNotes.vehicleId !== String(vehicle_id) ||
+      orderNotes.pickupDate !== pickup.toISOString() ||
+      orderNotes.dropoffDate !== dropoff.toISOString() ||
+      orderNotes.pickupLocation !== normalizedPickupLocation ||
+      orderNotes.pickupDistrict !== normalizedPickupDistrict ||
+      orderNotes.dropoffLocation !== normalizedDropoffLocation
+    ) {
+      return next(errorHandler(400, "Payment order does not match this booking"));
+    }
+
+    const payment = await razorpay.payments.fetch(razorpayPaymentId);
+
+    if (
+      payment.status !== "captured" ||
+      payment.order_id !== razorpayOrderId ||
+      payment.amount !== amountInPaise ||
+      payment.currency !== "INR"
+    ) {
+      return next(errorHandler(400, "Payment is not captured for this booking amount"));
+    }
+
+    const existingBooking = await Booking.findOne({
+      $or: [
+        { razorpayPaymentId },
+        { razorpayOrderId },
+      ],
+    }).lean();
+
+    if (existingBooking) {
+      return next(errorHandler(409, "This payment has already been used for a booking"));
+    }
 
     const book = new Booking({
-      pickupDate,
-      dropOffDate: dropoffDate,
-      userId: user_id,
-      pickUpLocation: pickup_location,
+      pickupDate: pickup,
+      dropOffDate: dropoff,
+      userId: authenticatedUserId,
+      pickUpLocation: normalizedPickupLocation,
       vehicleId: vehicle_id,
-      dropOffLocation: dropoff_location,
-      pickUpDistrict: pickup_district,
-      totalPrice,
+      dropOffLocation: normalizedDropoffLocation,
+      pickUpDistrict: normalizedPickupDistrict,
+      totalPrice: amount,
       razorpayPaymentId,
       razorpayOrderId,
       status: "booked",
     });
-    if (!book) {
-      console.log("not booked");
-      return;
-    }
 
     const booked = await book.save();
-    res.status(200).json({
+    return res.status(200).json({
       message: "car booked successfully",
       booked,
     });
   } catch (error) {
-    console.log(error);
-    next(errorHandler(500, "error while booking car"));
+    if (error.code === 11000) {
+      return next(errorHandler(409, "This payment has already been used for a booking"));
+    }
+    return next(errorHandler(500, "error while booking car"));
   }
 };
 
 //createing razorpay instance
 export const razorpayOrder = async (req, res, next) => {
   try {
-    const { totalPrice, dropoff_location, pickup_district, pickup_location } =
-      req.body;
+    const {
+      totalPrice,
+      dropoff_location,
+      pickup_district,
+      pickup_location,
+      vehicle_id,
+      pickupDate,
+      dropoffDate,
+    } = req.body || {};
 
-    console.log(totalPrice)
+    const amount = Number(totalPrice);
+    const amountInPaise = Math.round(amount * 100);
+
     if (
-      !totalPrice ||
-      !dropoff_location ||
-      !pickup_district ||
-      !pickup_location
+      !vehicle_id ||
+      !pickupDate ||
+      !dropoffDate ||
+      typeof dropoff_location !== "string" ||
+      !dropoff_location.trim() ||
+      typeof pickup_district !== "string" ||
+      !pickup_district.trim() ||
+      typeof pickup_location !== "string" ||
+      !pickup_location.trim() ||
+      !Number.isFinite(amount) ||
+      amount <= 0 ||
+      !Number.isSafeInteger(amountInPaise)
     ) {
-
-      return next(errorHandler(400, "Missing Required Feilds Process Cancelled")) ;
+      return next(errorHandler(400, "Missing or invalid payment details"));
     }
+
+    if (!mongoose.Types.ObjectId.isValid(vehicle_id)) {
+      return next(errorHandler(400, "Invalid vehicle ID"));
+    }
+
+    const pickup = new Date(pickupDate);
+    const dropoff = new Date(dropoffDate);
+    if (
+      Number.isNaN(pickup.getTime()) ||
+      Number.isNaN(dropoff.getTime()) ||
+      pickup >= dropoff
+    ) {
+      return next(errorHandler(400, "Invalid pickup/drop-off date range"));
+    }
+
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_SECRET) {
+      return next(errorHandler(503, "Payment service is not configured"));
+    }
+
+    const vehicle = await Vehicle.findOne({
+      _id: vehicle_id,
+      isDeleted: "false",
+      isAdminApproved: true,
+    }).lean();
+
+    if (!vehicle) {
+      return next(errorHandler(404, "Vehicle is not available"));
+    }
+
+    if (
+      vehicle.location !== pickup_location ||
+      vehicle.district !== pickup_district
+    ) {
+      return next(errorHandler(400, "Pickup location does not match the selected vehicle"));
+    }
+
+    const availableVehicles = await availableAtDate(pickup, dropoff);
+    if (!availableVehicles.some((availableVehicle) => String(availableVehicle._id) === String(vehicle_id))) {
+      return next(errorHandler(409, "Vehicle is not available for the selected dates"));
+    }
+
     const instance = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,
       key_secret: process.env.RAZORPAY_SECRET,
     });
 
-    const options = {
-      amount: totalPrice * 100, // amount in smallest currency unit
+    const order = await instance.orders.create({
+      amount: amountInPaise,
       currency: "INR",
-    };
+      notes: {
+        userId: String(req.user._id),
+        vehicleId: String(vehicle_id),
+        pickupDate: pickup.toISOString(),
+        dropoffDate: dropoff.toISOString(),
+        pickupLocation: normalizedPickupLocation,
+        pickupDistrict: normalizedPickupDistrict,
+        dropoffLocation: normalizedDropoffLocation,
+      },
+    });
 
-    const order = await instance.orders.create(options);
+    if (!order) {
+      return next(errorHandler(502, "Payment order could not be created"));
+    }
 
-    if (!order) return res.status(500).send("Some error occured");
-    res.status(200).json(order);
+    return res.status(200).json(order);
   } catch (error) {
-    console.log(error);
-    next(errorHandler(500, "error occured in razorpayorder"));
+    return next(errorHandler(502, "Payment service error while creating order"));
   }
 };
 
@@ -104,16 +309,19 @@ export const getVehiclesWithoutBooking = async (req, res, next) => {
     if (!pickupDate || !dropOffDate)
       return next(errorHandler(409, "pickup , dropffdate  is required"));
 
-    // Check if pickupDate is before dropOffDate
-    if (pickupDate >= dropOffDate)
-      return next(errorHandler(409, "Invalid date range"));
+    const pickup = new Date(pickupDate);
+    const dropoff = new Date(dropOffDate);
+    if (
+      Number.isNaN(pickup.getTime()) ||
+      Number.isNaN(dropoff.getTime()) ||
+      pickup >= dropoff
+    ) {
+      return next(errorHandler(400, "Invalid date range"));
+    }
 
-    const vehiclesAvailableAtDate = await availableAtDate(
-      pickupDate,
-      dropOffDate
-    );
+    const vehiclesAvailableAtDate = await availableAtDate(pickup, dropoff);
 
-    if (!vehiclesAvailableAtDate) {
+    if (!vehiclesAvailableAtDate || vehiclesAvailableAtDate.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No vehicles available for the specified time period.",
@@ -127,7 +335,7 @@ export const getVehiclesWithoutBooking = async (req, res, next) => {
         cur.isDeleted === "false"
     );
 
-    if (!availableVehicles) {
+    if (availableVehicles.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No vehicles available at this location.",
@@ -209,13 +417,19 @@ export const showOneofkind = async (req, res, next) => {
 //  filtering vehicles
 export const filterVehicles = async (req, res, next) => {
   try {
-    if (!req.body) {
-      next(errorHandler(401, "bad request no body"));
-      return;
-    }
     const transformedData = req.body;
-    if (!transformedData) {
-      next(errorHandler(401, "select filter option first"));
+    if (
+      !Array.isArray(transformedData) ||
+      transformedData.length > 20 ||
+      !transformedData.every(
+        (filter) =>
+          filter &&
+          typeof filter === "object" &&
+          !Array.isArray(filter) &&
+          ["car_type", "transmition"].includes(filter.type)
+      )
+    ) {
+      return next(errorHandler(400, "Invalid vehicle filter options"));
     }
     const generateMatchStage = (data) => {
       const carTypes = [];
@@ -246,6 +460,8 @@ export const filterVehicles = async (req, res, next) => {
       return {
         $match: {
           $and: [
+            { isDeleted: "false" },
+            { isAdminApproved: true },
             carTypes.length > 0 ? { car_type: { $in: carTypes } } : null,
             transmitions.length > 0
               ? { transmition: { $in: transmitions } }
@@ -276,12 +492,8 @@ export const filterVehicles = async (req, res, next) => {
 
 export const findBookingsOfUser = async (req, res, next) => {
   try {
-    if (!req.body) {
-      next(errorHandler(409, "_id of user is required"));
-      return;
-    }
-    const { userId } = req.body;
-    const convertedUserId = new mongoose.Types.ObjectId(userId);
+    const convertedUserId = req.user?._id;
+    if (!convertedUserId) return next(errorHandler(401, "Authentication required"));
 
     const bookings = await Booking.aggregate([
       {
@@ -318,9 +530,8 @@ export const findBookingsOfUser = async (req, res, next) => {
 //api to ge the latestbookings details
 export const latestbookings = async (req, res, next) => {
   try {
-    const { user_id } = req.body;
-    console.log(user_id);
-    const convertedUserId = new mongoose.Types.ObjectId(user_id);
+    const convertedUserId = req.user?._id;
+    if (!convertedUserId) return next(errorHandler(401, "Authentication required"));
 
     const bookings = await Booking.aggregate([
       {
@@ -375,14 +586,76 @@ export const latestbookings = async (req, res, next) => {
 };
 
 //send booking details to user email
-export const sendBookingDetailsEamil = (req, res, next) => {
-  try {
-    console.log("hello");
-    const { toEmail, data } = req.body;
-    console.log("hi");
-    console.log(req.body);
+const escapeHtml = (value) =>
+  String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character]);
 
-    var transporter = nodemailer.createTransport({
+// Send only the authenticated user's persisted booking details to their
+// account email. Client-supplied recipient and HTML data are never trusted.
+export const sendBookingDetailsEamil = async (req, res, next) => {
+  try {
+    const bookingId =
+      req.body?.bookingId ||
+      req.body?.data?.[0]?.bookingDetails?._id;
+
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return next(errorHandler(400, "A valid booking ID is required"));
+    }
+
+    if (!req.user?.email) {
+      return next(errorHandler(400, "Account email is not available"));
+    }
+
+    if (!process.env.EMAIL_HOST || !process.env.EMAIL_PASSWORD) {
+      return next(errorHandler(503, "Email service is not configured"));
+    }
+
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      userId: req.user._id,
+    }).lean();
+
+    if (!booking) {
+      return next(errorHandler(404, "Booking not found for this account"));
+    }
+
+    const vehicleDetails = await Vehicle.findById(booking.vehicleId).lean();
+    if (!vehicleDetails) {
+      return next(errorHandler(404, "Vehicle details for this booking were not found"));
+    }
+
+    const pickupDate = new Date(booking.pickupDate).toLocaleString();
+    const dropOffDate = new Date(booking.dropOffDate).toLocaleString();
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; padding: 10px;">
+        <h2>Booking Details</h2>
+        <hr>
+        <p><strong>Booking Id:</strong> ${escapeHtml(booking._id)}</p>
+        <p><strong>Total Amount:</strong> ${escapeHtml(booking.totalPrice)}</p>
+        <p><strong>Pickup Location:</strong> ${escapeHtml(booking.pickUpLocation)}</p>
+        <p><strong>Pickup Date:</strong> ${escapeHtml(pickupDate)}</p>
+        <p><strong>Dropoff Location:</strong> ${escapeHtml(booking.dropOffLocation)}</p>
+        <p><strong>Dropoff Date:</strong> ${escapeHtml(dropOffDate)}</p>
+        <h2>Vehicle Details</h2>
+        <hr>
+        <p><strong>Vehicle Number:</strong> ${escapeHtml(vehicleDetails.registeration_number)}</p>
+        <p><strong>Model:</strong> ${escapeHtml(vehicleDetails.model)}</p>
+        <p><strong>Company:</strong> ${escapeHtml(vehicleDetails.company)}</p>
+        <p><strong>Vehicle Type:</strong> ${escapeHtml(vehicleDetails.car_type)}</p>
+        <p><strong>Seats:</strong> ${escapeHtml(vehicleDetails.seats)}</p>
+        <p><strong>Fuel Type:</strong> ${escapeHtml(vehicleDetails.fuel_type)}</p>
+        <p><strong>Transmission:</strong> ${escapeHtml(vehicleDetails.transmition)}</p>
+        <p><strong>Manufacturing Year:</strong> ${escapeHtml(vehicleDetails.year_made)}</p>
+      </div>
+    `;
+
+    const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
         user: process.env.EMAIL_HOST,
@@ -390,65 +663,15 @@ export const sendBookingDetailsEamil = (req, res, next) => {
       },
     });
 
-    const generateEmailHtml = (bookingDetails, vehicleDetails) => {
-      const pickupDate = new Date(bookingDetails.pickupDate);
-      const dropOffDate = new Date(bookingDetails.dropOffDate);
-
-      return `
-          <div style="font-family: Arial, sans-serif; padding: 10px;">
-              <h2>Booking Details</h2>
-              <hr>
-              <p><strong>Booking Id:</strong> ${bookingDetails._id}</p>
-              <p><strong>Total Amount:</strong> ${bookingDetails.totalPrice}</p>
-              <p><strong>Pickup Location:</strong> ${
-                bookingDetails.pickUpLocation
-              }</p>
-              <p><strong>Pickup Date:</strong> ${pickupDate.getDate()}/${
-        pickupDate.getMonth() + 1
-      }/${pickupDate.getFullYear()} ${pickupDate.getHours()}:${pickupDate.getMinutes()}</p>
-              <p><strong>Dropoff Location:</strong> ${
-                bookingDetails.dropOffLocation
-              }</p>
-              <p><strong>Dropoff Date:</strong> ${dropOffDate.getDate()}/${
-        dropOffDate.getMonth() + 1
-      }/${dropOffDate.getFullYear()} ${dropOffDate.getHours()}:${dropOffDate.getMinutes()}</p>
-              <h2>Vehicle Details</h2>
-              <hr>
-              <p><strong>Vehicle Number:</strong> ${
-                vehicleDetails.registeration_number
-              }</p>
-              <p><strong>Model:</strong> ${vehicleDetails.model}</p>
-              <p><strong>Company:</strong> ${vehicleDetails.company}</p>
-              <p><strong>Vehicle Type:</strong> ${vehicleDetails.car_type}</p>
-              <p><strong>Seats:</strong> ${vehicleDetails.seats}</p>
-              <p><strong>Fuel Type:</strong> ${vehicleDetails.fuel_type}</p>
-              <p><strong>Transmission:</strong> ${
-                vehicleDetails.transmition
-              }</p>
-              <p><strong>Manufacturing Year:</strong> ${
-                vehicleDetails.year_made
-              }</p>
-          </div>
-      `;
-    };
-
-    var mailOptions = {
+    await transporter.sendMail({
       from: process.env.EMAIL_HOST,
-      to: toEmail,
+      to: req.user.email,
       subject: "rentaride.shop booking details",
-      html: generateEmailHtml(data[0].bookingDetails, data[0].vehicleDetails),
-    };
-
-    transporter.sendMail(mailOptions, function (error, info) {
-      if (error) {
-        console.log(error);
-      } else {
-        console.log("Email sent: " + info.response);
-        res.status(200).json("Email sent successfully");
-      }
+      html,
     });
+
+    return res.status(200).json({ message: "Email sent successfully" });
   } catch (error) {
-    console.log(error);
-    next(errorHandler(500, "internal server error in sendBookingDetailsEmail"));
+    return next(errorHandler(502, "Unable to send booking details email"));
   }
 };

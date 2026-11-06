@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon backend/server.js",
-    "start": "node backend/server.js "
+    "start": "node backend/server.js ",
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",

@@ -23,16 +23,15 @@ export async function sendBookingDetailsEmail(
   dispatch
 ) {
   try {
-    const sendEamil = await fetch("/api/user/sendBookingDetailsEamil", {
+    const sendEmailResponse = await fetch("/api/user/sendBookingDetailsEamil", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ toEmail, data: bookingDetails }),
     });
-    const response = await sendEamil.json();
 
-    if (!response.ok) {
+    if (!sendEmailResponse.ok) {
       dispatch(setisPaymentDone(false));
       console.log("something went wrong while sending email");
       return;

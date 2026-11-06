@@ -20,10 +20,13 @@ export default function Orders() {
 
   const fetchBookings = async () => {
     try {
+      const refreshToken = localStorage.getItem("refreshToken");
+      const accessToken = localStorage.getItem("accessToken");
       const res = await fetch("/api/user/findBookingsOfUser", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${refreshToken || ""},${accessToken || ""}`,
         },
         body: JSON.stringify({
           userId: _id,

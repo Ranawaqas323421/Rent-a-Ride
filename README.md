@@ -1,135 +1,150 @@
-
 # Rent a Ride
 
-This repository contains the code for a Full stack car rental website with 3 modules User,Admin,Vendor . The project is divided into Client  and  backend 
+A full-stack car rental application with separate user, admin, and vendor experiences.
 
+## Project structure
 
-## Installation
+- `backend/` — Express API, MongoDB models, authentication, bookings, vehicle and vendor management.
+- `client/` — React + Vite frontend.
+- `package.json` — backend dependencies and scripts.
 
-Clone Rent a Ride
+## Requirements
+
+- Node.js 18 or later
+- npm
+- MongoDB database (local MongoDB or MongoDB Atlas)
+- Cloudinary account for vehicle media uploads
+- Razorpay account for payment processing
+- Gmail app password (only if booking emails are enabled)
+
+## Backend setup
+
+From the repository root:
 
 ```bash
-https://github.com/jeevan-aj/Rent-a-Ride.git
+npm install
+cp .env.example .env
 ```
 
-Install node modules
+Fill in the values in `.env`. Do not commit this file or share its secrets.
+
+Start the API in development mode:
 
 ```bash
-  cd backend
-  npm install
-  npm run dev
+npm run dev
 ```
+
+The API listens on port `3000` by default. Set `PORT` to change it. Check the API and MongoDB connection with:
+
 ```bash
-  cd client
-  npm install
-  npm run dev
+curl http://localhost:3000/health
 ```
 
-    
-## Tech Stack
+## Frontend setup
 
-**Client:** React, Javascript, Redux Toolkit, Material Ui, TailwindCSS, React Toast 
+In a second terminal:
 
-**Server:** Express.js, Mongodb, Cloudinary, Nodemailer , Multer
+```bash
+cd client
+npm install
+cp .env.example .env
+npm run dev
+```
 
-**Deployed frontend and backend  On AWS ec2, Nginx as Reverse Proxy ,Cloudflare as Dns resolver ,Used Pm2 for uptime**
+The Vite development server uses `http://localhost:5173` by default and proxies `/api` requests to the backend. Set `VITE_PRODUCTION_BACKEND_URL` in `client/.env` only when the API is hosted somewhere other than `http://localhost:3000`. The deployed Vercel frontend uses the `/api` rewrite in `client/vercel.json`; update its destination if your backend host changes.
 
+Build the frontend:
 
-## Project Description
-A full-scale Car Rental Platform with user, admin, and vendor modules, designed to offer seamless vehicle booking, management, and administration. The platform is developed using modern technologies to ensure smooth and efficient operations, catering to different user roles with distinct functionalities.
+```bash
+npm run build
+```
 
-##
+## Environment variables
 
-**Key Features & Modules:**
+### Backend (`.env` in the repository root)
 
-**User Module:**
+| Variable | Purpose |
+| --- | --- |
+| `mongo_uri` | MongoDB connection string |
+| `ACCESS_TOKEN` | Long, random JWT access-token secret |
+| `REFRESH_TOKEN` | Different long, random JWT refresh-token secret |
+| `CLOUD_NAME` | Cloudinary cloud name |
+| `API_KEY` | Cloudinary API key |
+| `API_SECRET` | Cloudinary API secret |
+| `RAZORPAY_KEY_ID` | Razorpay server key ID |
+| `RAZORPAY_SECRET` | Razorpay server secret |
+| `EMAIL_HOST` | Sender email address |
+| `EMAIL_PASSWORD` | Email provider app password |
+| `PORT` | Optional API port (default: `3000`) |
+| `CLIENT_URL` | Comma-separated allowed frontend origins |
 
-* View and Book Vehicles: Users can view available vehicles and book them online.
-* Profile Management: Users can view and edit their profiles, as well as manage their account settings.
-* Order Management: View past and upcoming orders; users can only access their own bookings.
-* Account Management: Users can sign up, sign in, delete their account, and sign out seamlessly.
-* Email Notifications: After booking a vehicle, users receive an email with order details.
+### Frontend (`client/.env`)
 
-**Admin Module:**
+| Variable | Purpose |
+| --- | --- |
+| `VITE_PRODUCTION_BACKEND_URL` | Optional backend URL used by the Vite development proxy |
+| `VITE_RAZORPAY_KEY_ID` | Public Razorpay key ID used by the checkout UI |
+| `VITE_FIREBASE_API_KEY` | Firebase Web API key used by Google sign-in |
 
-* Booking Management: Admins can view and manage bookings, including booking details and statuses.
+Only public values should use the `VITE_` prefix. Never put database credentials, JWT secrets, Cloudinary API secrets, or the Razorpay secret in frontend variables.
 
-* Vendor Management: View and approve/reject vendors, as well as remove vendors from the platform.
+## Run the project health check
 
-* Vehicle Management: Admins can view, update, and delete vehicle listings.
+Open two terminals from the repository root:
 
-* User Management: Admins have the ability to remove users from the platform.
+1. Start the backend in the first terminal:
 
-**Vendor Module:**
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-* Sign Up and Sign In: Separate sign-up and sign-in flow for vendors.
+2. Run the health-check script in the second terminal:
 
-* Vehicle Listing: Vendors can add their vehicles to the platform for approval by the admin. Approved vehicles will be listed on the site.
+   ```bash
+   bash scripts/health-check.sh
+   ```
 
-* Order Notifications: Vendors receive updates on orders when users book their vehicles.
+The script checks the MongoDB connection using the root `.env` value `mongo_uri`, checks the backend `/health` endpoint (default `http://localhost:3000/health`), and runs the frontend production build. It prints PASS/FAIL results and exits with a non-zero status if a required check fails.
 
-##
+Optional: to also check whether a frontend server is responding, start it in another terminal and set its URL when running the script:
 
-**Technology Stack:**
+```bash
+cd client && npm install && npm run dev
+# In another terminal, from the repository root:
+FRONTEND_URL=http://localhost:5173 bash scripts/health-check.sh
+```
 
-**Frontend:** React.js (with Vite), Redux Toolkit, Tailwind CSS, React Hook Form, Zod for form validation, Google OAuth, Razorpay for payment processing.
+If your backend uses a different port, set `BACKEND_HEALTH_URL`, for example:
 
-**Backend:** Node.js, Express.js, MongoDB, Multer for handling multipart form data, Nodemailer for sending emails, Cloudinary for media storage, MVC architecture, JWT with access and refresh tokens, Protected routes, Role-based access control.
+```bash
+BACKEND_HEALTH_URL=http://localhost:4000/health bash scripts/health-check.sh
+```
 
-**Database:** MongoDB with aggregation pipelines, referencing models, and optimized storage solutions.
+This script checks connectivity and frontend compilation; it does not perform full login, booking, or Razorpay end-to-end tests.
 
-**Deployment:** Deployed on AWS EC2, utilizing Nginx as a reverse proxy, and Cloudflare for DNS management.
+## Available scripts
 
-##
+Run these from the repository root:
 
-**Features & Implementations:**
+- `npm run dev` — start the backend with nodemon.
+- `npm start` — start the backend.
 
-* JWT Authentication: Integrated JWT access and refresh tokens to secure user, admin, and vendor login flows.
+Run these from `client/`:
 
-* Role-Based Access: Implemented protected routes and role-based access to restrict access based on user roles (Admin, User, Vendor).
+- `npm run dev` — start Vite.
+- `npm run build` — create a production frontend build.
+- `npm run lint` — run ESLint.
+- `npm run preview` — preview the production build locally.
 
-* Dynamic Location Selector: The location picker dynamically updates pickup and drop-off options based on user location selection.
+## Deployment notes
 
-* Search, Sort, Filter Functionality: Enhanced search, filter, and sort capabilities for seamless vehicle browsing and booking.
+Configure backend environment variables in the hosting provider's secret/environment settings. Configure the frontend environment variables in the frontend hosting provider, including `VITE_RAZORPAY_KEY_ID` and `VITE_FIREBASE_API_KEY` when those sign-in/payment methods are enabled. Update `CLIENT_URL` to include the exact deployed frontend origin(s). For local development, copy `.env.example` to `.env` at the repository root and copy `client/.env.example` to `client/.env`; fill in your own values.
 
-* UI Development: Built most of the UI from scratch, including dynamic form validations using Zod and React Hook Form.
+## Important security review items
 
-* Google OAuth: Integrated Google OAuth for quick and secure sign-up/sign-in functionality.
+Razorpay checkout signatures and captured payment status are now checked by the booking API before a booking is saved. Before using this application with real customers, still review and test server-side authorization for user, admin, and vendor routes; derive booking ownership from the authenticated user rather than request-body IDs; validate all request data; and restrict email sending to authenticated booking owners. Frontend route guards alone do not secure API endpoints.
 
-* Email Notifications: Implemented automated email notifications for vehicle booking confirmations using Nodemailer.
+## Tech stack
 
-* Cloudinary Integration: Used Cloudinary to handle image and video storage, reducing the database load by optimizing media assets.
-
-* MongoDB: Used four main models to take advantage of MongoDB’s referencing functionality, improving data organization and retrieval efficiency.
-
-* Multer: Utilized Multer to handle file uploads for vehicles, including images and videos.
-
-* Version Control: Employed Git throughout the project for version control, collaboration, and backup.
-## Screenshots
-
-//user
-<img width="1440" alt="Screenshot 2024-04-06 at 3 06 32 PM" src="https://github.com/user-attachments/assets/4b769f7d-5d2c-43a7-8283-07fa8402de92">
-<img width="1430" alt="Screenshot 2024-12-10 at 12 35 41 AM" src="https://github.com/user-attachments/assets/5d6e0160-5f1d-4e67-a64e-1e18fb17a590">
-<img width="1425" alt="Screenshot 2024-12-10 at 12 35 58 AM" src="https://github.com/user-attachments/assets/ac6b0f33-344e-4009-a979-23ea7dc3a5bb">
-<img width="1430" alt="Screenshot 2024-12-10 at 12 36 15 AM" src="https://github.com/user-attachments/assets/40e2dc7d-0694-483d-bf4a-badac9c4d5f3">
-<img width="1426" alt="Screenshot 2024-12-10 at 12 36 28 AM" src="https://github.com/user-attachments/assets/7ce5d1fa-c51f-414b-92da-cc04ac7c3402">
-<img width="1428" alt="Screenshot 2024-12-10 at 1 59 45 AM" src="https://github.com/user-attachments/assets/0e87009c-832d-4c5e-be7c-ecd4df341070">
-<img width="1408" alt="Screenshot 2024-12-10 at 2 00 01 AM" src="https://github.com/user-attachments/assets/baf15b5d-2e04-4410-803b-527dddda1aab">
-
-
-//Admin
-<img width="1418" alt="Screenshot 2024-12-10 at 2 01 09 AM" src="https://github.com/user-attachments/assets/c08e3bf0-2776-4236-80b6-6714d52ec8d7">
-<img width="1421" alt="Screenshot 2024-12-10 at 2 04 29 AM" src="https://github.com/user-attachments/assets/ce6dada8-41b7-4aec-b86a-4a359f6d339f">
-<img width="1431" alt="Screenshot 2024-12-10 at 2 04 42 AM" src="https://github.com/user-attachments/assets/467503a4-ab9a-4396-bc57-1abff5fe8106">
-<img width="1418" alt="Screenshot 2024-12-10 at 2 05 02 AM" src="https://github.com/user-attachments/assets/8e1d2948-6316-420b-8336-30ec7c752b04">
-
-
-//vendor
-<img width="1418" alt="Screenshot 2024-12-10 at 2 05 02 AM" src="https://github.com/user-attachments/assets/59a9a9c7-5dc1-4f61-8d15-43266579386c">
-<img width="1432" alt="Screenshot 2024-12-10 at 2 08 00 AM" src="https://github.com/user-attachments/assets/4e9d8f66-0984-4163-8dea-f9023db56ce0">
-
-
-
-
-
-
+React, Vite, Redux Toolkit, Tailwind CSS, Material UI, Node.js, Express, MongoDB/Mongoose, JWT, Cloudinary, Nodemailer, Multer, and Razorpay.

@@ -1,10 +1,15 @@
+import mongoose from "mongoose";
 import vehicle from "../../models/vehicleModel.js";
+import Booking from "../../models/BookingModel.js";
 import { errorHandler } from "../../utils/error.js";
 
 //show all vehicles to user
 export const listAllVehicles = async (req, res, next) => {
   try {
-    const vehicles = await vehicle.find();
+    const vehicles = await vehicle.find({
+      isDeleted: "false",
+      isAdminApproved: true,
+    });
 
     if (!vehicles) {
       return next(errorHandler(404, "no vehicles found"));
@@ -19,11 +24,16 @@ export const listAllVehicles = async (req, res, next) => {
 //show one vehicle Detail to user
 export const showVehicleDetails = async (req, res, next) => {
   try {
-    if (!req.body) {
-      next(errorHandler(409, "body cannot be empty"));
+    const id = req.body?.id;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return next(errorHandler(400, "A valid vehicle ID is required"));
     }
-    const { id } = req.body;
-    const vehicleDetail = await vehicle.findById(id);
+
+    const vehicleDetail = await vehicle.findOne({
+      _id: id,
+      isDeleted: "false",
+      isAdminApproved: true,
+    });
 
     if (!vehicleDetail) {
       return next(errorHandler(404, "no vehicles found"));

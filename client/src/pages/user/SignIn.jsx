@@ -63,11 +63,10 @@ function SignIn() {
   const dispatch = useDispatch();
 
   const onSubmit = async (formData, e) => {
-    const BASE_URL = import.meta.env.VITE_PRODUCTION_BACKEND_URL;
     e.preventDefault();
     try {
       dispatch(signInStart());
-      const res = await fetch(`${BASE_URL}/api/auth/signin`, {
+      const res = await fetch("/api/auth/signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -101,8 +100,6 @@ function SignIn() {
         dispatch(loadingEnd());
         dispatch(signInFailure(data));
       }
-      dispatch(loadingEnd());
-      dispatch(signInFailure("something went wrong"));
     } catch (error) {
       dispatch(loadingEnd());
       dispatch(signInFailure(error));
@@ -144,7 +141,7 @@ function SignIn() {
 
           <div>
             <input
-              type="text"
+              type="password"
               id="password"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="Password"

@@ -36,20 +36,24 @@ function VendorSignin() {
     e.preventDefault();
     try {
       dispatch(signInStart());
-      const res = await fetch("api/vendor/vendorsignin", {
+      const res = await fetch("/api/vendor/vendorsignin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
       const data = await res.json();
 
-      if (data.succes === false) {
+      if (!res.ok) {
         dispatch(signInFailure(data));
         return;
       }
       if (data.isVendor) {
+        if (data.accessToken) localStorage.setItem("accessToken", data.accessToken);
+        if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
         navigate("/vendorDashboard");
         dispatch(signInSuccess(data));
+      } else {
+        dispatch(signInFailure({ message: "This account is not registered as a vendor." }));
       }
     } catch (error) {
       dispatch(signInFailure(error));
@@ -93,7 +97,7 @@ function VendorSignin() {
 
           <div>
             <input
-              type="text"
+              type="password"
               id="password"
               className="text-black bg-slate-100 p-3 rounded-md w-full"
               placeholder="Password"
