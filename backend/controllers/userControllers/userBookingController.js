@@ -90,7 +90,7 @@ export const BookCar = async (req, res, next) => {
     const vehicle = await Vehicle.findOne({
       _id: vehicle_id,
       isDeleted: "false",
-      isAdminApproved: { $ne: false },
+      isAdminApproved: true,
     }).lean();
 
     if (!vehicle) {
@@ -247,7 +247,7 @@ export const razorpayOrder = async (req, res, next) => {
     const vehicle = await Vehicle.findOne({
       _id: vehicle_id,
       isDeleted: "false",
-      isAdminApproved: { $ne: false },
+      isAdminApproved: true,
     }).lean();
 
     if (!vehicle) {
