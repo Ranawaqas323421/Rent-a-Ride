@@ -34,7 +34,6 @@ export const vendorAddVehicle = async (req, res, next) => {
       car_type,
       location,
       district,
-      addedBy,
     } = req.body;
 
     const uploadedImages = [];
@@ -192,6 +191,8 @@ export const vendorEditVehicles = async (req, res, next) => {
           )
         );
       }
+
+      return next(errorHandler(400, "Invalid vehicle update"));
     }
   } catch (error) {
     console.log(error);
@@ -233,7 +234,7 @@ export const showVendorVehicles = async (req, res, next) => {
     ]);
 
     if (!vendorsVehicles || vendorsVehicles.length === 0) {
-      throw errorHandler(400, "No vehicles found");
+      return res.status(404).json({ message: "No vehicles found", data: [] });
     }
 
     res.status(200).json(vendorsVehicles);
