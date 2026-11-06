@@ -1,24 +1,26 @@
-export const adminAuth = async (req,res,next)=> {
-    try{
-        if(req.user.isAdmin){
-            res.status(200).json({message:"admin loged in successfully"})
-        }
-        else{
-            res.status(403).json({message:"only acces for admins"})
-        }
-        
-    }
-    catch(error){
-        next(error)
-    }
-}
+import { errorHandler } from "../../utils/error.js";
 
-export const adminProfiile = async (req,res,next)=> {
-    try{
+export const adminAuth = async (req, res, next) => {
+  if (!req.user?.isAdmin) {
+    return next(errorHandler(403, "Admin access only"));
+  }
+  return res.status(200).json({ message: "admin logged in successfully" });
+};
 
+export const adminProfiile = async (req, res, next) => {
+  try {
+    if (!req.user?.isAdmin) {
+      return next(errorHandler(403, "Admin access only"));
     }
-    catch(error){
-        next(error)
-    }
-}
 
+    const admin = typeof req.user.toObject === "function"
+      ? req.user.toObject()
+      : { ...req.user };
+    delete admin.password;
+    delete admin.refreshToken;
+
+    return res.status(200).json(admin);
+  } catch (error) {
+    return next(error);
+  }
+};
