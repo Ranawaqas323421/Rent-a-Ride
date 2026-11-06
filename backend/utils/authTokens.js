@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 import { errorHandler } from "./error.js";
@@ -25,7 +26,7 @@ export const createAuthTokens = async (userId) => {
   const refreshToken = jwt.sign(
     { id: String(userId) },
     process.env.REFRESH_TOKEN,
-    { expiresIn: "7d" }
+    { expiresIn: "7d", jwtid: randomUUID() }
   );
 
   const result = await User.updateOne(
