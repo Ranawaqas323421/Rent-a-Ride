@@ -303,14 +303,17 @@ export const getVehiclesWithoutBooking = async (req, res, next) => {
     if (!pickupDate || !dropOffDate)
       return next(errorHandler(409, "pickup , dropffdate  is required"));
 
-    // Check if pickupDate is before dropOffDate
-    if (pickupDate >= dropOffDate)
-      return next(errorHandler(409, "Invalid date range"));
+    const pickup = new Date(pickupDate);
+    const dropoff = new Date(dropOffDate);
+    if (
+      Number.isNaN(pickup.getTime()) ||
+      Number.isNaN(dropoff.getTime()) ||
+      pickup >= dropoff
+    ) {
+      return next(errorHandler(400, "Invalid date range"));
+    }
 
-    const vehiclesAvailableAtDate = await availableAtDate(
-      pickupDate,
-      dropOffDate
-    );
+    const vehiclesAvailableAtDate = await availableAtDate(pickup, dropoff);
 
     if (!vehiclesAvailableAtDate || vehiclesAvailableAtDate.length === 0) {
       return res.status(404).json({
@@ -408,13 +411,19 @@ export const showOneofkind = async (req, res, next) => {
 //  filtering vehicles
 export const filterVehicles = async (req, res, next) => {
   try {
-    if (!req.body) {
-      next(errorHandler(401, "bad request no body"));
-      return;
-    }
     const transformedData = req.body;
-    if (!transformedData) {
-      next(errorHandler(401, "select filter option first"));
+    if (
+      !Array.isArray(transformedData) ||
+      transformedData.length > 20 ||
+      !transformedData.every(
+        (filter) =>
+          filter &&
+          typeof filter === "object" &&
+          !Array.isArray(filter) &&
+          ["car_type", "transmition"].includes(filter.type)
+      )
+    ) {
+      return next(errorHandler(400, "Invalid vehicle filter options"));
     }
     const generateMatchStage = (data) => {
       const carTypes = [];
