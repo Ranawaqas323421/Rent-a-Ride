@@ -6,7 +6,7 @@
 
 ## Changes made on this branch
 
-- Added short-lived access tokens (15 minutes), refresh tokens (7 days), host-only HttpOnly cookies, atomic refresh-token rotation, and refresh-token revocation on sign-out and password change. The existing Bearer `refreshToken,accessToken` format and JSON token response remain supported for compatibility.
+- Added short-lived access tokens (15 minutes), refresh tokens (7 days), host-only HttpOnly cookies, atomic refresh-token rotation, and refresh-token revocation on sign-out and password change. The existing Bearer `refreshToken,accessToken` format and JSON token response remain supported for compatibility. Set `NODE_ENV=production` on the backend deployment so the cookies are marked Secure.
 - Added reusable user, vendor, and admin role middleware. Admin data/mutation routes now require admin role; vendor routes require vendor role; private user/booking routes require user role.
 - Vendor vehicle creation now derives `addedBy` from the authenticated vendor. Vendor vehicle listing, edit, delete, and booking history are scoped to that vendor.
 - Booking ownership now comes from `req.user`; the legacy `user_id` body field is only checked for mismatch and is not used as the owner.
