@@ -454,6 +454,8 @@ export const filterVehicles = async (req, res, next) => {
       return {
         $match: {
           $and: [
+            { isDeleted: "false" },
+            { isAdminApproved: { $ne: false } },
             carTypes.length > 0 ? { car_type: { $in: carTypes } } : null,
             transmitions.length > 0
               ? { transmition: { $in: transmitions } }
