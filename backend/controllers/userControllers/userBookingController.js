@@ -38,6 +38,12 @@ export const BookCar = async (req, res, next) => {
       return next(errorHandler(403, "Booking user does not match authenticated account"));
     }
 
+    const normalizedPickupLocation =
+      typeof pickup_location === "string" ? pickup_location.trim() : "";
+    const normalizedPickupDistrict =
+      typeof pickup_district === "string" ? pickup_district.trim() : "";
+    const normalizedDropoffLocation =
+      typeof dropoff_location === "string" ? dropoff_location.trim() : "";
     const amount = Number(totalPrice);
     const amountInPaise = Math.round(amount * 100);
     if (
@@ -92,8 +98,8 @@ export const BookCar = async (req, res, next) => {
     }
 
     if (
-      vehicle.location !== pickup_location ||
-      vehicle.district !== pickup_district
+      vehicle.location !== normalizedPickupLocation ||
+      vehicle.district !== normalizedPickupDistrict
     ) {
       return next(errorHandler(400, "Pickup location does not match the selected vehicle"));
     }
@@ -131,9 +137,9 @@ export const BookCar = async (req, res, next) => {
       orderNotes.vehicleId !== String(vehicle_id) ||
       orderNotes.pickupDate !== pickup.toISOString() ||
       orderNotes.dropoffDate !== dropoff.toISOString() ||
-      orderNotes.pickupLocation !== pickup_location ||
-      orderNotes.pickupDistrict !== pickup_district ||
-      orderNotes.dropoffLocation !== dropoff_location
+      orderNotes.pickupLocation !== normalizedPickupLocation ||
+      orderNotes.pickupDistrict !== normalizedPickupDistrict ||
+      orderNotes.dropoffLocation !== normalizedDropoffLocation
     ) {
       return next(errorHandler(400, "Payment order does not match this booking"));
     }
@@ -164,10 +170,10 @@ export const BookCar = async (req, res, next) => {
       pickupDate: pickup,
       dropOffDate: dropoff,
       userId: authenticatedUserId,
-      pickUpLocation: pickup_location.trim(),
+      pickUpLocation: normalizedPickupLocation,
       vehicleId: vehicle_id,
-      dropOffLocation: dropoff_location.trim(),
-      pickUpDistrict: pickup_district.trim(),
+      dropOffLocation: normalizedDropoffLocation,
+      pickUpDistrict: normalizedPickupDistrict,
       totalPrice: amount,
       razorpayPaymentId,
       razorpayOrderId,
@@ -273,9 +279,9 @@ export const razorpayOrder = async (req, res, next) => {
         vehicleId: String(vehicle_id),
         pickupDate: pickup.toISOString(),
         dropoffDate: dropoff.toISOString(),
-        pickupLocation: pickup_location.trim(),
-        pickupDistrict: pickup_district.trim(),
-        dropoffLocation: dropoff_location.trim(),
+        pickupLocation: normalizedPickupLocation,
+        pickupDistrict: normalizedPickupDistrict,
+        dropoffLocation: normalizedDropoffLocation,
       },
     });
 
