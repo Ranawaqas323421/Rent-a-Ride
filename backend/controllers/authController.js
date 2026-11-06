@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import User from "../models/userModel.js";
 import bcryptjs from "bcryptjs";
 import { errorHandler } from "../utils/error.js";
@@ -125,7 +125,7 @@ export const refreshToken = async (req, res, next) => {
     const refreshToken = Jwt.sign(
       { id: user._id },
       process.env.REFRESH_TOKEN,
-      { expiresIn: "7d" }
+      { expiresIn: "7d", jwtid: randomUUID() }
     );
 
     const rotation = await User.updateOne(
