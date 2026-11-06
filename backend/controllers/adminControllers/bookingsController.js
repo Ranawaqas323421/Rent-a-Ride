@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Booking from "../../models/BookingModel.js";
 import Vehicle from "../../models/vehicleModel.js";
 import { errorHandler } from "../../utils/error.js";
@@ -40,10 +41,21 @@ export const changeStatus = async (req, res, next) => {
       return;
     }
     const { id, status } = req.body;
+    const allowedStatuses = Booking.schema.path("status").enumValues;
 
-    const statusChanged = await Booking.findByIdAndUpdate(id, {
-      status: status,
-    });
+    if (
+      !mongoose.Types.ObjectId.isValid(id) ||
+      typeof status !== "string" ||
+      !allowedStatuses.includes(status)
+    ) {
+      return next(errorHandler(400, "Invalid booking ID or status"));
+    }
+
+    const statusChanged = await Booking.findByIdAndUpdate(
+      id,
+      { $set: { status } },
+      { new: true, runValidators: true }
+    );
 
     if (!statusChanged) {
       next(errorHandler(404, "status not changed or wrong id"));
