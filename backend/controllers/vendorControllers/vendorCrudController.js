@@ -82,8 +82,8 @@ export const vendorAddVehicle = async (req, res, next) => {
               created_at: Date.now(),
               location,
               district,
-              isAdminAdded: "false",
-              addedBy: addedBy,
+              isAdminAdded: false,
+              addedBy: String(req.user._id),
               isAdminApproved: false,
             });
 
@@ -146,8 +146,8 @@ export const vendorEditVehicles = async (req, res, next) => {
     } = req.body.formData;
 
     try {
-      const edited = await Vehicle.findByIdAndUpdate(
-        vehicle_id,
+      const edited = await Vehicle.findOneAndUpdate(
+        { _id: vehicle_id, isAdminAdded: false, addedBy: String(req.user._id) },
         {
           registeration_number,
           company,
@@ -173,7 +173,7 @@ export const vendorEditVehicles = async (req, res, next) => {
           isRejected: false,
         },
 
-        { new: true }
+        { new: true, runValidators: true }
       );
       if (!edited) {
         return next(errorHandler(404, "data with this id not found"));
@@ -204,7 +204,7 @@ export const vendorDeleteVehicles = async (req, res, next) => {
   try {
     const vehicle_id = req.params.id;
     const softDeleted = await vehicle.findOneAndUpdate(
-      { _id: vehicle_id },
+      { _id: vehicle_id, isAdminAdded: false, addedBy: String(req.user._id) },
       { isDeleted: "true" },
       { new: true }
     );
@@ -222,18 +222,12 @@ export const vendorDeleteVehicles = async (req, res, next) => {
 //show vendor vehicles
 export const showVendorVehicles = async (req, res, next) => {
   try {
-    if (!req.body) {
-      throw errorHandler(400, "User not found");
-    }
-
-    const { _id } = req.body;
-
     const vendorsVehicles = await vehicle.aggregate([
       {
         $match: {
           isDeleted: "false",
           isAdminAdded: false,
-          addedBy: _id,
+          addedBy: String(req.user._id),
         },
       },
     ]);
