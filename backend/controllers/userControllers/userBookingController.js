@@ -121,6 +121,23 @@ export const BookCar = async (req, res, next) => {
       key_id: process.env.RAZORPAY_KEY_ID,
       key_secret: process.env.RAZORPAY_SECRET,
     });
+    const order = await razorpay.orders.fetch(razorpayOrderId);
+    const orderNotes = order.notes || {};
+
+    if (
+      order.amount !== amountInPaise ||
+      order.currency !== "INR" ||
+      orderNotes.userId !== String(authenticatedUserId) ||
+      orderNotes.vehicleId !== String(vehicle_id) ||
+      orderNotes.pickupDate !== pickup.toISOString() ||
+      orderNotes.dropoffDate !== dropoff.toISOString() ||
+      orderNotes.pickupLocation !== pickup_location ||
+      orderNotes.pickupDistrict !== pickup_district ||
+      orderNotes.dropoffLocation !== dropoff_location
+    ) {
+      return next(errorHandler(400, "Payment order does not match this booking"));
+    }
+
     const payment = await razorpay.payments.fetch(razorpayPaymentId);
 
     if (
@@ -251,6 +268,15 @@ export const razorpayOrder = async (req, res, next) => {
     const order = await instance.orders.create({
       amount: amountInPaise,
       currency: "INR",
+      notes: {
+        userId: String(req.user._id),
+        vehicleId: String(vehicle_id),
+        pickupDate: pickup.toISOString(),
+        dropoffDate: dropoff.toISOString(),
+        pickupLocation: pickup_location.trim(),
+        pickupDistrict: pickup_district.trim(),
+        dropoffLocation: dropoff_location.trim(),
+      },
     });
 
     if (!order) {
