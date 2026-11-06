@@ -8,7 +8,8 @@ const userSchema = new mongoose.Schema({
   },
   pickupDate: { type: Date, required: true },
   dropOffDate: { type: Date, required: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Optional, if needed
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  pickUpDistrict: { type: String },
   pickUpLocation: { type: String, required: true },
   dropOffLocation: { type: String, required: true },
   totalPrice: { type: Number, required: true },
