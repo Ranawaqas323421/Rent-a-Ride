@@ -29,7 +29,11 @@ export const showVehicleDetails = async (req, res, next) => {
       return next(errorHandler(400, "A valid vehicle ID is required"));
     }
 
-    const vehicleDetail = await vehicle.findById(id);
+    const vehicleDetail = await vehicle.findOne({
+      _id: id,
+      isDeleted: "false",
+      isAdminApproved: { $ne: false },
+    });
 
     if (!vehicleDetail) {
       return next(errorHandler(404, "no vehicles found"));
