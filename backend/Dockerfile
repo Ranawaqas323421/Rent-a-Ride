@@ -1,20 +1,14 @@
-# Node.js base image
 FROM node:22-alpine
 
-# Working directory
 WORKDIR /app
 
-# Copy package files
+# Install the backend dependencies from the repository root.
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm install
+# The backend source lives in the backend directory.
+COPY backend ./backend
 
-# Copy frontend source code
-COPY . .
+EXPOSE 3000
 
-# Expose Vite port
-EXPOSE 5173
-
-# Start frontend
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+CMD ["npm", "start"]
