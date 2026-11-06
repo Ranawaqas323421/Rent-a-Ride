@@ -94,7 +94,9 @@ export const refreshToken = async (req, res, next) => {
     const authorization = req.headers.authorization || "";
     if (authorization.startsWith("Bearer ")) {
       const tokenParts = authorization.slice(7).trim().split(",");
-      token = (tokenParts.length === 2 ? tokenParts[0] : tokenParts[0] || "").trim();
+      if (tokenParts.length === 2 || !token) {
+        token = (tokenParts[0] || "").trim();
+      }
     }
 
     if (!token) {
