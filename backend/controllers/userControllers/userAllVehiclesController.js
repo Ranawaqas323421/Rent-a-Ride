@@ -8,7 +8,7 @@ export const listAllVehicles = async (req, res, next) => {
   try {
     const vehicles = await vehicle.find({
       isDeleted: "false",
-      isAdminApproved: { $ne: false },
+      isAdminApproved: true,
     });
 
     if (!vehicles) {
@@ -32,7 +32,7 @@ export const showVehicleDetails = async (req, res, next) => {
     const vehicleDetail = await vehicle.findOne({
       _id: id,
       isDeleted: "false",
-      isAdminApproved: { $ne: false },
+      isAdminApproved: true,
     });
 
     if (!vehicleDetail) {
