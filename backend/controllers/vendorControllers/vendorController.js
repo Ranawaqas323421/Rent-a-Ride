@@ -47,7 +47,7 @@ export const vendorSignup = async (req, res, next) => {
       isVendor: true,
     });
 
-    return res.status(201).json({ message: "vendor created successfully" });
+    return res.status(200).json({ message: "vendor created successfully" });
   } catch (error) {
     if (error.code === 11000) {
       return next(errorHandler(409, "Email or username is already in use"));
