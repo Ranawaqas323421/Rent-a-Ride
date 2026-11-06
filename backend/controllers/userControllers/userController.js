@@ -32,6 +32,8 @@ export const updateUser = async (req, res, next) => {
         return next(errorHandler(400, "Password must be between 4 and 128 characters"));
       }
       updates.password = await bcryptjs.hash(req.body.password, 10);
+      // A password change invalidates the stored refresh session.
+      updates.refreshToken = "";
     }
 
     if (typeof req.body?.profilePicture === "string") {
@@ -50,6 +52,10 @@ export const updateUser = async (req, res, next) => {
 
     if (!updatedUser) {
       return next(errorHandler(404, "User not found"));
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "password")) {
+      clearAuthCookies(res);
     }
 
     return res.status(200).json(updatedUser);
