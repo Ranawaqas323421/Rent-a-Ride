@@ -30,6 +30,6 @@ export async function availableAtDate(pickupDate, dropOffDate) {
   return Vehicle.find({
     _id: { $nin: bookedVehicleIds },
     isDeleted: "false",
-    isAdminApproved: { $ne: false },
+    isAdminApproved: true,
   });
 }
