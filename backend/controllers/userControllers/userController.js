@@ -1,68 +1,100 @@
 import User from "../../models/userModel.js";
 import { errorHandler } from "../../utils/error.js";
 import bcryptjs from "bcryptjs";
+import { clearAuthCookies } from "../../utils/authTokens.js";
 
-
-//update user
-
+// Update the authenticated user's own account.
 export const updateUser = async (req, res, next) => {
-  
-  if (req.user.id !== req.params.id) {
-    return next(errorHandler(401, "you can only update your account"));
+  if (String(req.user?._id) !== String(req.params.id)) {
+    return next(errorHandler(403, "You can only update your own account"));
   }
 
   try {
-    if (req.body.password) {
-      req.body.password = bcryptjs.hashSync(req.body.password, 10);
+    const updates = {};
+    if (typeof req.body?.username === "string") {
+      const username = req.body.username.trim();
+      if (username.length < 3 || username.length > 50) {
+        return next(errorHandler(400, "Username must be between 3 and 50 characters"));
+      }
+      updates.username = username;
     }
+
+    if (typeof req.body?.email === "string") {
+      const email = req.body.email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return next(errorHandler(400, "A valid email address is required"));
+      }
+      updates.email = email;
+    }
+
+    if (typeof req.body?.password === "string" && req.body.password.length > 0) {
+      if (req.body.password.length < 4 || req.body.password.length > 128) {
+        return next(errorHandler(400, "Password must be between 4 and 128 characters"));
+      }
+      updates.password = await bcryptjs.hash(req.body.password, 10);
+    }
+
+    if (typeof req.body?.profilePicture === "string") {
+      updates.profilePicture = req.body.profilePicture;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return next(errorHandler(400, "No valid profile fields were provided"));
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
-      req.params.id,
-      {
-        $set: {
-          username: req.body.username,
-          email: req.body.email,
-          password: req.body.password,
-          profilePicture: req.body.profilePicture,
-        },
-      },
-      { new: true }
-    );
-    const { password, ...rest } = updatedUser._doc;
-    res.status(200).json(rest);
-  } catch (error) {
-    next(error);
-  }
-};
+      req.user._id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    ).select("-password -refreshToken");
 
-//delete user
-
-export const deleteUser = async (req, res, next) => {
-  if (req.user.id != req.params.id) {
-    return next(errorHandler(401, "you can only delete your account"));
-  }
-  try {
-    const userFound = await User.findByIdAndDelete(req.user.id);
-    if (userFound) {
-      return res.status(200).json({ message: "user deleted successfully" });
+    if (!updatedUser) {
+      return next(errorHandler(404, "User not found"));
     }
-    next(errorHandler(404, "user not found and not deleted"));
+
+    return res.status(200).json(updatedUser);
   } catch (error) {
-    next(error);
+    if (error.code === 11000) {
+      return next(errorHandler(409, "Email or username is already in use"));
+    }
+    return next(error);
   }
 };
 
-
-//signOut 
-
-export const signOut = async(req,res,next)=> {
-  try{
-    // res.clearCookie('access_token','refresh_token')
-    res.status(200).json({message:"signedOut successfully"})
-  }
-  catch(error){
-   console.log(error)
-   next(errorHandler(500,'error in signout controller'))
+// Delete only the authenticated user's own account.
+export const deleteUser = async (req, res, next) => {
+  if (String(req.user?._id) !== String(req.params.id)) {
+    return next(errorHandler(403, "You can only delete your own account"));
   }
 
-}
+  try {
+    const userFound = await User.findByIdAndDelete(req.user._id);
+    if (!userFound) {
+      return next(errorHandler(404, "User not found"));
+    }
 
+    clearAuthCookies(res);
+    return res.status(200).json({ message: "user deleted successfully" });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+// Revoke the current refresh token and clear browser authentication cookies.
+export const signOut = async (req, res, next) => {
+  try {
+    if (!req.user?._id) {
+      return next(errorHandler(401, "Authentication required"));
+    }
+
+    await User.updateOne(
+      { _id: req.user._id },
+      { $set: { refreshToken: "" } }
+    );
+
+    clearAuthCookies(res);
+    return res.status(200).json({ message: "signedOut successfully" });
+  } catch (error) {
+    return next(errorHandler(500, "error in signout controller"));
+  }
+};
