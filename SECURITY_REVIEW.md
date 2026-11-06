@@ -12,7 +12,7 @@
 - Booking ownership now comes from `req.user`; the legacy `user_id` body field is only checked for mismatch and is not used as the owner.
 - Booking/email endpoints validate inputs. Booking emails are generated from the authenticated user's persisted booking and account email, not client-supplied recipient or HTML data.
 - Razorpay orders now carry server-generated user, vehicle, date, and pickup/drop-off metadata. Booking creation verifies those notes and the captured payment, checks vehicle availability, and rejects reuse of an order/payment.
-- Added booking owner and pickup-district schema fields, profile/vehicle filter validation, booking status validation, and a built-in Node test command.
+- Added booking owner and pickup-district schema fields, profile/vehicle filter validation, booking status validation, an eight-character minimum for new/changed passwords, and a built-in Node test command.
 
 ## Remaining blockers and risks
 
@@ -29,6 +29,10 @@
 6. **Legacy booking records may not have `userId`.** New bookings now require an owner, but old documents without `userId` remain unowned and will not appear in user booking history or pass the new email ownership check. Backfill them only where ownership can be proven.
 
 7. **Access tokens are not immediately revocable.** Sign-out/password change clears the refresh token, but an already-issued access token can remain valid until its 15-minute expiry. Immediate revocation would require a token-version/denylist design.
+
+8. **Refresh tokens are stored in plaintext in MongoDB.** A database read compromise could expose active refresh tokens. Hash refresh tokens at rest and compare hashes; this requires a migration because existing records contain raw tokens.
+
+9. **Authentication endpoints are not rate-limited.** Add per-IP/account throttling and monitoring for signup/sign-in/refresh endpoints before public production exposure.
 
 ## Verification limits
 
