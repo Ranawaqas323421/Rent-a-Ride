@@ -2,13 +2,13 @@
 node_modules/
 **/node_modules/
 
-# Environment files (keep example templates)
+# Environment files and secrets
 .env
 .env.*
 !.env.example
 !.env.*.example
 
-# Build output
+# Build output and test artifacts
 dist/
 dist-ssr/
 build/
@@ -34,25 +34,3 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
-
-# Environment files and secrets
-.env
-.env.*
-!.env.example
-
-# Dependencies and build files
-node_modules/
-client/node_modules/
-dist/
-client/dist/
-
-# Environment files and secrets
-.env
-.env.*
-!.env.example
-
-# Dependencies and build files
-node_modules/
-client/node_modules/
-dist/
-client/dist/
