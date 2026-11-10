@@ -8,14 +8,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 //zod validation schema
 const schema = z.object({
-  username: z.string().min(3, { message: "minimum 3 characters required" }),
+  username: z.string().min(3, { message: "minimum 3 characters required" }).max(50, { message: "maximum 50 characters allowed" }),
   email: z
     .string()
     .min(1, { message: "email required" })
     .refine((value) => /\S+@\S+\.\S+/.test(value), {
       message: "Invalid email address",
     }),
-  password: z.string().min(8, { message: "minimum 8 characters required" }),
+  password: z.string().min(8, { message: "minimum 8 characters required" }).max(128, { message: "maximum 128 characters allowed" }),
 });
 
 function SignUp() {
@@ -25,30 +25,43 @@ function SignUp() {
     formState: { errors },
   } = useForm({ resolver: zodResolver(schema) });
 
-  const [isError, setError] = useState(false);
+  const [isError, setError] = useState("");
   const [isLoading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const onSubmit = async (formData, e) => {
-    e.preventDefault();
+  const onSubmit = async (formData) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 20000);
+
     setLoading(true);
+    setError("");
+
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
+        signal: controller.signal,
       });
-      const data = await res.json();
-      setLoading(false);
-      if (data.succes === false) {
-        setError(true);
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || data?.success === false) {
+        setError(data?.message || `Signup failed (HTTP ${res.status})`);
         return;
       }
-      setError(false);
+
+      setError("");
       navigate("/signin");
     } catch (error) {
+      setError(
+        error.name === "AbortError"
+          ? "Signup request timed out. Please check the connection and try again."
+          : error.message || "Unable to connect to the server. Please try again."
+      );
+    } finally {
+      window.clearTimeout(timeoutId);
       setLoading(false);
-      setError(true);
     }
   };
 
@@ -134,7 +147,7 @@ function SignUp() {
               </span>
             </p>
             <p className="text-[10px] text-red-600">
-              {isError && "something went wrong"}
+              {isError}
             </p>
           </div>
         </form>
