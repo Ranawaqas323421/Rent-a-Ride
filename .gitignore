@@ -34,3 +34,14 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies and build files
+node_modules/
+client/node_modules/
+dist/
+client/dist/

@@ -1,13 +1,28 @@
-FROM node:22-alpine
+
+# Stage 1: Install production dependencies
+FROM node:22-alpine AS dependencies
 
 WORKDIR /app
 
-# Install the backend dependencies from the repository root.
 COPY package*.json ./
-RUN npm ci
 
-# The backend source lives in the backend directory.
+RUN npm ci --omit=dev && npm cache clean --force
+
+
+# Stage 2: Production runtime
+FROM node:22-alpine AS production
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+COPY --from=dependencies /app/node_modules ./node_modules
+
 COPY backend ./backend
+
+COPY package.json ./
+
+USER node
 
 EXPOSE 3000
 

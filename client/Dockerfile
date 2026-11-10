@@ -1,23 +1,26 @@
-# Node.js base image
-FROM node:22
 
-# Working directory
+# Stage 1: Dependencies
+FROM node:22-alpine AS dependencies
+
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+RUN npm ci
 
-# Copy frontend source code
+
+# Stage 2: Application Runtime
+FROM node:22-alpine AS runtime
+
+WORKDIR /app
+
+ENV NODE_ENV=development
+ENV HOST=0.0.0.0
+
+COPY --from=dependencies /app/node_modules ./node_modules
+
 COPY . .
 
-# Build frontend
-RUN npm run build
-
-# Expose Vite port
 EXPOSE 5173
 
-# Start frontend
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
