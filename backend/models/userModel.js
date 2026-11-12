@@ -12,10 +12,11 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    phoneNumber:{
-      type:String,
-      unique:true
-    },
+    phoneNumber: {
+     type: String,
+     unique: true,
+     sparse: true
+   },
     adress:{
       type:String,
     },

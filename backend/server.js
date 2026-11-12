@@ -15,7 +15,7 @@ import { cloudinaryConfig } from "./utils/cloudinaryConfig.js";
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-const allowedOrigins = (process.env.CLIENT_URL || "https://rent-a-ride-two.vercel.app,http://localhost:5173")
+const allowedOrigins = (process.env.CLIENT_URL || "https://rent-a-ride-two.vercel.app,http://localhost:5173,http://44.211.50.122:5173")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);

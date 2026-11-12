@@ -1,0 +1,39 @@
+services:
+  frontend:
+    image: 684905328952.dkr.ecr.us-east-1.amazonaws.com/rent-a-ride-frontend:latest
+    container_name: rent-a-ride-frontend-test
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_PRODUCTION_BACKEND_URL: http://backend:3000
+    networks:
+      - rent-a-ride-network
+    depends_on:
+      - backend
+
+  backend:
+    image: 684905328952.dkr.ecr.us-east-1.amazonaws.com/rent-a-ride-backend:latest
+    container_name: rent-a-ride-backend-test
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    networks:
+      - rent-a-ride-network
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: mongo:7
+    container_name: rent-a-ride-mongodb-test
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - rent-a-ride-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  rent-a-ride-network:
+    driver: bridge
