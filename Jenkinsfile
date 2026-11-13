@@ -4,12 +4,20 @@ pipeline {
 
     options {
         timestamps()
-        timeout(time: 20, unit: 'MINUTES')
         disableConcurrentBuilds()
     }
 
+    environment {
+        APP_EC2_HOST = 'YOUR_APPLICATION_EC2_PUBLIC_IP'
+        EC2_USER = 'ubuntu'
+        APP_DIR = '/home/ubuntu/Rent-a-Ride'
+        GIT_REPO = 'https://github.com/Ranawaqas323421/Rent-a-Ride.git'
+        GIT_BRANCH = 'feature/waqas'
+    }
+
     stages {
-        stage('Checkout Source') {
+
+        stage('Checkout Code') {
             steps {
                 checkout scm
             }
@@ -19,53 +27,94 @@ pipeline {
             steps {
                 sh '''
                     set -e
+                    echo "Checking project files..."
 
-                    test -f package.json
-                    test -f package-lock.json
-                    test -f backend/server.js
-                    test -f client/package.json
-                    test -f client/package-lock.json
+                    test -f backend/Dockerfile
+                    test -f client/Dockerfile
+                    test -f docker-compose.yml
 
-                    echo "Project structure verified successfully."
+                    echo "Project files verified."
                 '''
             }
         }
 
-        stage('Install Backend Dependencies') {
+        stage('Build Backend Image') {
             steps {
                 sh '''
-                    echo "Installing backend dependencies..."
-                    npm ci
+                    docker build \
+                    -t rent-a-ride-backend:latest \
+                    -f backend/Dockerfile .
                 '''
             }
         }
 
-        stage('Backend Tests') {
+        stage('Build Frontend Image') {
             steps {
                 sh '''
-                    echo "Running backend tests..."
-                    npm test
+                    docker build \
+                    -t rent-a-ride-frontend:latest \
+                    -f client/Dockerfile .
                 '''
             }
         }
 
-        stage('Install Frontend Dependencies') {
+        stage('Deploy Code to Application EC2') {
             steps {
-                dir('client') {
+                sshagent(credentials: ['app-ec2-ssh']) {
                     sh '''
-                        echo "Installing frontend dependencies..."
-                        npm ci
+                        ssh -o StrictHostKeyChecking=no \
+                        ${EC2_USER}@${APP_EC2_HOST} "
+                            set -e
+
+                            if [ ! -d '${APP_DIR}/.git' ]; then
+                                git clone \
+                                -b ${GIT_BRANCH} \
+                                ${GIT_REPO} \
+                                ${APP_DIR}
+                            else
+                                cd ${APP_DIR}
+                                git fetch origin
+                                git checkout ${GIT_BRANCH}
+                                git reset --hard origin/${GIT_BRANCH}
+                            fi
+                        "
                     '''
                 }
             }
         }
 
-        stage('Frontend Production Build') {
+        stage('Build and Run on Application EC2') {
             steps {
-                dir('client') {
+                sshagent(credentials: ['app-ec2-ssh']) {
                     sh '''
-                        echo "Building frontend..."
-                        npm run build
+                        ssh -o StrictHostKeyChecking=no \
+                        ${EC2_USER}@${APP_EC2_HOST} "
+                            set -e
+                            cd ${APP_DIR}
+
+                            docker compose down
+
+                            docker compose build
+
+                            docker compose up -d
+
+                            docker compose ps
+                        "
+                    '''
+                }
+            }
+        }
+
+        stage('Deployment Status') {
+            steps {
+                sshagent(credentials: ['app-ec2-ssh']) {
+                    sh '''
+                        ssh -o StrictHostKeyChecking=no \
+                        ${EC2_USER}@${APP_EC2_HOST} "
+                            cd ${APP_DIR}
+                            docker compose ps
+                            docker compose logs --tail=30
+                        "
                     '''
                 }
             }
@@ -74,16 +123,15 @@ pipeline {
 
     post {
         success {
-            echo 'SUCCESS: Backend tests and frontend build completed.'
+            echo 'SUCCESS: Rent-a-Ride deployment completed!'
         }
 
         failure {
-            echo 'FAILED: Check the Console Output for details.'
+            echo 'FAILED: Check Jenkins Console Output.'
         }
 
         always {
-            echo 'Rent-a-Ride CI pipeline finished.'
+            echo 'Pipeline execution completed.'
         }
     }
 }
-
