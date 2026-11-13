@@ -8,7 +8,7 @@ pipeline {
     }
 
     environment {
-        APP_EC2_HOST = 'YOUR_APPLICATION_EC2_PUBLIC_IP'
+        APP_EC2_HOST = '18.204.4.86'
         EC2_USER = 'ubuntu'
         APP_DIR = '/home/ubuntu/Rent-a-Ride'
         GIT_REPO = 'https://github.com/Ranawaqas323421/Rent-a-Ride.git'
