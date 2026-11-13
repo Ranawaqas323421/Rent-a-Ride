@@ -8,7 +8,9 @@ const refreshTokenLifetimeMs = 7 * 24 * 60 * 60 * 1000;
 
 const baseCookieOptions = () => ({
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  // Enable secure cookies explicitly when HTTPS is configured. Plain HTTP
+  // EC2 testing must keep this false or browsers will not send the cookies.
+  secure: process.env.COOKIE_SECURE === "true",
   sameSite: "lax",
   path: "/",
 });

@@ -15,16 +15,19 @@ import { cloudinaryConfig } from "./utils/cloudinaryConfig.js";
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-const allowedOrigins = (process.env.CLIENT_URL || "https://rent-a-ride-two.vercel.app,http://localhost:5173")
+const allowedOrigins = (
+  process.env.CLIENT_URL ||
+  "https://rent-a-ride-two.vercel.app,http://localhost:5173,http://100.48.9.239:5173"
+)
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => origin.trim().replace(/\/$/, ""))
   .filter(Boolean);
 
 app.use(
   cors({
     origin(origin, callback) {
-      // Requests from tools and server-to-server clients may not send an Origin header.
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Requests from tools and server-to-server clients may omit Origin.
+      if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ""))) {
         return callback(null, true);
       }
       return callback(new Error("Origin is not allowed by CORS"));
@@ -66,9 +69,10 @@ app.use((err, _req, res, _next) => {
   }
   res.status(statusCode).json({
     success: false,
-    message: statusCode >= 500 && process.env.NODE_ENV === "production"
-      ? "Internal server error"
-      : err.message || "Internal server error",
+    message:
+      statusCode >= 500 && process.env.NODE_ENV === "production"
+        ? "Internal server error"
+        : err.message || "Internal server error",
   });
 });
 

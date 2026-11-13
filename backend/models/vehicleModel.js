@@ -1,4 +1,4 @@
-import mongoose, { mongo } from "mongoose";
+import mongoose from "mongoose";
 
 const vehicleSchema = new mongoose.Schema({
   registeration_number: {
@@ -6,25 +6,25 @@ const vehicleSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  car_title:{
-    type:String,
-    required:false
+  car_title: {
+    type: String,
+    required: false,
   },
-  car_description:{
-    type:String,
-    required:false
+  car_description: {
+    type: String,
+    required: false,
   },
-  created_at:{
-    type:String,
-    required:false
+  created_at: {
+    type: String,
+    required: false,
   },
-  updated_at:{
-    type:String,
-    required:false
+  updated_at: {
+    type: String,
+    required: false,
   },
-  remark:{
-    type:String,
-    required:false
+  remark: {
+    type: String,
+    required: false,
   },
   company: {
     type: String,
@@ -43,17 +43,20 @@ const vehicleSchema = new mongoose.Schema({
     required: false,
   },
   fuel_type: {
+    // Keep "electirc" for compatibility with the existing frontend form values.
     type: String,
-    enum:["petrol", "diesel", "electirc","hybrid"],
-    required:false
+    enum: ["petrol", "diesel", "electirc", "hybrid"],
+    required: false,
   },
   rented_by: {
     type: String,
     required: false,
   },
   rating: {
-    type: ["1", "2", "3", "4", "5"],
-    requrired:false,
+    type: Number,
+    min: 0,
+    max: 5,
+    required: false,
   },
   seats: {
     type: Number,
@@ -61,11 +64,11 @@ const vehicleSchema = new mongoose.Schema({
   },
   transmition: {
     type: String,
-    enum:["manual","automatic"]
+    enum: ["manual", "automatic"],
   },
   image: {
-    type:Array,
-    required:false
+    type: Array,
+    required: false,
   },
   description: {
     type: String,
@@ -78,6 +81,7 @@ const vehicleSchema = new mongoose.Schema({
   price: {
     type: Number,
     required: false,
+    min: 0,
   },
   base_package: {
     type: String,
@@ -120,40 +124,41 @@ const vehicleSchema = new mongoose.Schema({
   car_type: {
     type: String,
   },
-  isDeleted:{
-    type:String,
-    default:false,
-    required:false
+  isDeleted: {
+    // Existing controllers intentionally use the string values "true"/"false".
+    type: String,
+    enum: ["true", "false"],
+    default: "false",
+    required: false,
   },
-  location:{
-    type:String,
-    required:true
+  location: {
+    type: String,
+    required: true,
   },
-  district:{
-    type:String,
-    required:true
+  district: {
+    type: String,
+    required: true,
   },
-  isBooked:{
-    type:Boolean,
-    default:false
+  isBooked: {
+    type: Boolean,
+    default: false,
   },
-  isAdminAdded:{
-    type:Boolean,
-    default:true
+  isAdminAdded: {
+    type: Boolean,
+    default: true,
   },
-  addedBy:{
-    type:String,
-    default:'admin'
+  addedBy: {
+    type: String,
+    default: "admin",
   },
-  isAdminApproved:{
-    type:Boolean,
-    default:true
+  isAdminApproved: {
+    type: Boolean,
+    default: true,
   },
-  isRejected:{
-    type:Boolean,
-    default:false
-  }
-
+  isRejected: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const Vehicle = mongoose.model("Vehicle", vehicleSchema);
