@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -24,26 +25,16 @@ pipeline {
                     test -d backend
                     test -d client
                     test -f package.json
+                    test -f client/package.json
+                    test -f backend/server.js
 
                     echo "Root package.json found."
                     echo "Backend folder found."
+                    echo "Backend server.js found."
                     echo "Frontend folder found."
+                    echo "Frontend package.json found."
 
-                    if [ -f backend/package.json ]; then
-                        echo "Backend package.json found."
-                    else
-                        echo "Backend package.json not found."
-                        exit 1
-                    fi
-
-                    if [ -f client/package.json ]; then
-                        echo "Frontend package.json found."
-                    else
-                        echo "Frontend package.json not found."
-                        exit 1
-                    fi
-
-                    echo "Rent-a-Ride source checkout and verification successful."
+                    echo "Project verification successful."
                 '''
             }
         }
@@ -51,11 +42,13 @@ pipeline {
 
     post {
         success {
-            echo 'SUCCESS: Rent-a-Ride source was checked successfully.'
+            echo 'SUCCESS: Rent-a-Ride project verification completed.'
         }
+
         failure {
-            echo 'FAILED: Check the Console Output for the error.'
+            echo 'FAILED: Check the Console Output for details.'
         }
+
         always {
             echo 'Jenkins pipeline finished.'
         }
