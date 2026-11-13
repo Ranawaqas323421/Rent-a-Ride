@@ -279,9 +279,9 @@ export const razorpayOrder = async (req, res, next) => {
         vehicleId: String(vehicle_id),
         pickupDate: pickup.toISOString(),
         dropoffDate: dropoff.toISOString(),
-        pickupLocation: normalizedPickupLocation,
-        pickupDistrict: normalizedPickupDistrict,
-        dropoffLocation: normalizedDropoffLocation,
+        pickupLocation: pickup_location.trim(),
+        pickupDistrict: pickup_district.trim(),
+        dropoffLocation: dropoff_location.trim(),
       },
     });
 
