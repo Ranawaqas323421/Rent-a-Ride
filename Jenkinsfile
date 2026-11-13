@@ -4,7 +4,7 @@ pipeline {
 
     options {
         timestamps()
-        timeout(time: 10, unit: 'MINUTES')
+        timeout(time: 20, unit: 'MINUTES')
         disableConcurrentBuilds()
     }
 
@@ -20,29 +20,61 @@ pipeline {
                 sh '''
                     set -e
 
-                    echo "Checking Rent-a-Ride project structure..."
-
-                    test -d backend
-                    test -d client
                     test -f package.json
-                    test -f client/package.json
+                    test -f package-lock.json
                     test -f backend/server.js
+                    test -f client/package.json
+                    test -f client/package-lock.json
 
-                    echo "Root package.json found."
-                    echo "Backend folder found."
-                    echo "Backend server.js found."
-                    echo "Frontend folder found."
-                    echo "Frontend package.json found."
-
-                    echo "Project verification successful."
+                    echo "Project structure verified successfully."
                 '''
+            }
+        }
+
+        stage('Install Backend Dependencies') {
+            steps {
+                sh '''
+                    echo "Installing backend dependencies..."
+                    npm ci
+                '''
+            }
+        }
+
+        stage('Backend Tests') {
+            steps {
+                sh '''
+                    echo "Running backend tests..."
+                    npm test
+                '''
+            }
+        }
+
+        stage('Install Frontend Dependencies') {
+            steps {
+                dir('client') {
+                    sh '''
+                        echo "Installing frontend dependencies..."
+                        npm ci
+                    '''
+                }
+            }
+        }
+
+        stage('Frontend Production Build') {
+            steps {
+                dir('client') {
+                    sh '''
+                        echo "Building frontend..."
+                        npm run build
+                    '''
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'SUCCESS: Rent-a-Ride project verification completed.'
+            echo 'SUCCESS: Backend tests and frontend build completed.'
         }
 
         failure {
@@ -50,7 +82,8 @@ pipeline {
         }
 
         always {
-            echo 'Jenkins pipeline finished.'
+            echo 'Rent-a-Ride CI pipeline finished.'
         }
     }
 }
+
