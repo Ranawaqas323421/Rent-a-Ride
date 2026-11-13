@@ -23,10 +23,13 @@ const ProfileEdit = () => {
       if (data) {
         const formData = data;
         dispatch(editUserProfile({ ...formData }));
+        const refreshToken = localStorage.getItem("refreshToken");
+        const accessToken = localStorage.getItem("accessToken");
         await fetch(`/api/user/editUserProfile/${id}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${refreshToken || ""},${accessToken || ""}`,
           },
           body: JSON.stringify({ formData }),
         });

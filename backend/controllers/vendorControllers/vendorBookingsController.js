@@ -1,34 +1,37 @@
-import Booking from '../../models/BookingModel.js'
+import Booking from "../../models/BookingModel.js";
+import { errorHandler } from "../../utils/error.js";
 
 export const vendorBookings = async (req, res, next) => {
-    try {
-        const {vendorVehicles}  = req.body
-        const bookings = await Booking.aggregate([
-          {
-            $lookup: {
-              from: "vehicles",
-              localField: "vehicleId",
-              foreignField: "_id",
-              as: "vehicleDetails",
-            },
-          },
-          {
-            $unwind: {
-              path: "$vehicleDetails",
-            },
-          },
-        ]);
-    
-        if (!bookings) {
-          next(errorHandler(404, "no bookings found"));
-        }
+  try {
+    const vendorId = req.user?._id;
+    if (!vendorId) {
+      return next(errorHandler(401, "Authentication required"));
+    }
 
-      
-    
-        res.status(200).json(bookings);
-      } catch (error) {
-        console.log(error);
-        next(errorHandler(500, "error in allBookings"));
-      }
-  };
-  
+    const bookings = await Booking.aggregate([
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "vehicleId",
+          foreignField: "_id",
+          as: "vehicleDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$vehicleDetails",
+        },
+      },
+      {
+        $match: {
+          "vehicleDetails.addedBy": String(vendorId),
+          "vehicleDetails.isAdminAdded": false,
+        },
+      },
+    ]);
+
+    return res.status(200).json(bookings);
+  } catch (error) {
+    return next(errorHandler(500, "error in vendorBookings"));
+  }
+};

@@ -1,124 +1,148 @@
+import { randomBytes } from "node:crypto";
 import User from "../../models/userModel.js";
 import bcryptjs from "bcryptjs";
-import Jwt from "jsonwebtoken";
 import { errorHandler } from "../../utils/error.js";
+import {
+  clearAuthCookies,
+  createAuthTokens,
+  setAuthCookies,
+} from "../../utils/authTokens.js";
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const normalizeEmail = (email) =>
+  typeof email === "string" ? email.trim().toLowerCase() : "";
 
-const expireDate = new Date(Date.now() + 3600000);
+const toSafeVendor = (user) => {
+  const userObject = typeof user.toObject === "function" ? user.toObject() : { ...user };
+  delete userObject.password;
+  delete userObject.refreshToken;
+  return userObject;
+};
 
 export const vendorSignup = async (req, res, next) => {
-  const { username, email, password } = req.body;
   try {
-    const hadshedPassword = bcryptjs.hashSync(password, 10);
-    const user = await User.create({
+    const username =
+      typeof req.body?.username === "string" ? req.body.username.trim() : "";
+    const email = normalizeEmail(req.body?.email);
+    const password = req.body?.password;
+
+    if (
+      username.length < 3 ||
+      username.length > 50 ||
+      !emailPattern.test(email) ||
+      typeof password !== "string" ||
+      password.length < 8 ||
+      password.length > 128
+    ) {
+      return next(errorHandler(400, "Username, valid email, and a 8-128 character password are required"));
+    }
+
+    const hashedPassword = await bcryptjs.hash(password, 10);
+    await User.create({
       username,
-      password: hadshedPassword,
+      password: hashedPassword,
       email,
+      isUser: false,
+      isAdmin: false,
       isVendor: true,
     });
-    await user.save();
-    res.status(200).json({ message: "vendor created successfully" });
+
+    return res.status(200).json({ message: "vendor created successfully" });
   } catch (error) {
-    next(error);
+    if (error.code === 11000) {
+      return next(errorHandler(409, "Email or username is already in use"));
+    }
+    return next(error);
   }
 };
 
 export const vendorSignin = async (req, res, next) => {
-  const { email, password } = req.body;
   try {
-    const validVendor = await User.findOne({ email }).lean();
-    if (!validVendor || !validVendor.isVendor) {
-      return next(errorHandler(404,"user not found"))
-    }
-    const validPassword = bcryptjs.compareSync(password, validVendor.password);
-    if (!validPassword) {
-      return next(errorHandler(404,"wrong credentials"));
-    }
-   
-    const token = Jwt.sign({ id: validVendor._id }, process.env.ACCESS_TOKEN);
-    const { password: hadshedPassword, ...rest } = validVendor;
-    const thirtyDaysInMilliseconds = 30 * 24 * 60 * 60 * 1000;
+    const email = normalizeEmail(req.body?.email);
+    const password = req.body?.password;
 
-    res
-      .cookie("access_token", token, {
-        httpOnly: true,
-        maxAge: thirtyDaysInMilliseconds,
-      })
-      .status(200)
-      .json(rest);
+    if (!emailPattern.test(email) || typeof password !== "string" || !password) {
+      return next(errorHandler(400, "A valid email and password are required"));
+    }
+
+    const validVendor = await User.findOne({ email });
+    if (!validVendor || !validVendor.isVendor) {
+      return next(errorHandler(401, "Invalid email or password"));
+    }
+
+    const validPassword = await bcryptjs.compare(password, validVendor.password);
+    if (!validPassword) {
+      return next(errorHandler(401, "Invalid email or password"));
+    }
+
+    const tokens = await createAuthTokens(validVendor._id);
+    setAuthCookies(res, tokens);
+
+    return res.status(200).json({
+      ...toSafeVendor(validVendor),
+      ...tokens,
+    });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
 export const vendorSignout = async (req, res, next) => {
   try {
-    res
-      .clearCookie("access_token")
-      .status(200)
-      .json({ message: "vendor signedout successfully" });
+    if (!req.user?._id) {
+      return next(errorHandler(401, "Authentication required"));
+    }
+
+    await User.updateOne(
+      { _id: req.user._id },
+      { $set: { refreshToken: "" } }
+    );
+    clearAuthCookies(res);
+    return res.status(200).json({ message: "vendor signedout successfully" });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 };
 
-
-//vendor login or signup with google
-
+// Google OAuth must be verified server-side with a Firebase ID token before
+// this endpoint can be considered safe for production use.
 export const vendorGoogle = async (req, res, next) => {
   try {
-    const user = await User.findOne({ email: req.body.email }).lean();
-    if (user && user.isVendor) {
-      const { password: hashedPassword, ...rest } = user;
-      const token = Jwt.sign({ id: user._id }, process.env.ACCESS_TOKEN);
+    const email = normalizeEmail(req.body?.email);
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
 
-      res
-        .cookie("access_token", token, {
-          httpOnly: true,
-          expires: expireDate,
-        })
-        .status(200)
-        .json(rest);
-    } else {
-      const generatedPassword =
-        Math.random().toString(36).slice(-8) +
-        Math.random().toString(36).slice(-8); //we are generating a random password since there is no password in result
-      const hashedPassword = bcryptjs.hashSync(generatedPassword, 10);
-      const newUser = new User({
-        profilePicture: req.body.photo,
-        password: hashedPassword,
-        username:
-          req.body.name.split(" ").join("").toLowerCase() +
-          Math.random().toString(36).slice(-8) +
-          Math.random().toString(36).slice(-8),
-        email: req.body.email,
-        isVendor:true,
-        //we cannot set username to req.body.name because other user may also have same name so we generate a random value and concat it to name
-        //36 in toString(36) means random value from 0-9 and a-z
-      });
-      try{
-        const savedUser=  await newUser.save();
-     const userObject = savedUser.toObject();
-     
-      const token = Jwt.sign({ id: newUser._id }, process.env.ACCESS_TOKEN);
-      const { password: hashedPassword2, ...rest } = userObject;
-      res
-        .cookie("access_token", token, {
-          httpOnly: true,
-          expires: expireDate,
-        })
-        .status(200)
-        .json(rest);
-      }
-      catch(error){
-        if(error.code === 11000){
-          return next(errorHandler(409,"email already in use"))
-        }
-        next(error)
-      }
-     
+    if (!emailPattern.test(email) || !name) {
+      return next(errorHandler(400, "A valid Google account email and name are required"));
     }
+
+    let user = await User.findOne({ email });
+    if (user && !user.isVendor) {
+      return next(errorHandler(409, "Email already in use for another account type"));
+    }
+
+    if (!user) {
+      const baseUsername = name.replace(/\s+/g, "").toLowerCase().slice(0, 30) || "vendor";
+      const generatedPassword = randomBytes(24).toString("hex");
+      const hashedPassword = await bcryptjs.hash(generatedPassword, 10);
+
+      user = await User.create({
+        profilePicture: typeof req.body.photo === "string" ? req.body.photo : undefined,
+        password: hashedPassword,
+        username: `${baseUsername}-${randomBytes(6).toString("hex")}`,
+        email,
+        isUser: false,
+        isAdmin: false,
+        isVendor: true,
+      });
+    }
+
+    const tokens = await createAuthTokens(user._id);
+    setAuthCookies(res, tokens);
+    return res.status(200).json(toSafeVendor(user));
   } catch (error) {
-    next(error);
+    if (error.code === 11000) {
+      return next(errorHandler(409, "Email or username is already in use"));
+    }
+    return next(error);
   }
 };

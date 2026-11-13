@@ -1,40 +1,40 @@
 import express from "express";
 
 import { verifyToken } from "../utils/verifyUser.js";
-import { updateUser ,deleteUser , signOut } from "../controllers/userControllers/userController.js";
-import { checkAvailability, listAllVehicles, searchCar, showVehicleDetails } from "../controllers/userControllers/userAllVehiclesController.js";
+import { requireUser } from "../utils/authorization.js";
+import { updateUser, deleteUser, signOut } from "../controllers/userControllers/userController.js";
+import { listAllVehicles, showVehicleDetails } from "../controllers/userControllers/userAllVehiclesController.js";
 import { editUserProfile } from "../controllers/userControllers/userProfileController.js";
-import { BookCar, razorpayOrder, getVehiclesWithoutBooking, filterVehicles, showOneofkind, showAllVariants, findBookingsOfUser, sendBookingDetailsEamil, latestbookings } from "../controllers/userControllers/userBookingController.js";
+import {
+  BookCar,
+  razorpayOrder,
+  getVehiclesWithoutBooking,
+  filterVehicles,
+  showOneofkind,
+  showAllVariants,
+  findBookingsOfUser,
+  sendBookingDetailsEamil,
+  latestbookings,
+} from "../controllers/userControllers/userBookingController.js";
 
+const router = express.Router();
 
-const router = express.Router()
+// Public catalogue and availability discovery endpoints.
+router.get("/listAllVehicles", listAllVehicles);
+router.post("/showVehicleDetails", showVehicleDetails);
+router.post("/filterVehicles", filterVehicles);
+router.post("/getVehiclesWithoutBooking", getVehiclesWithoutBooking, showAllVariants);
+router.post("/showSingleofSameModel", getVehiclesWithoutBooking, showOneofkind);
 
+// All account and booking operations require a verified user session.
+router.post("/update/:id", verifyToken, requireUser, updateUser);
+router.delete("/delete/:id", verifyToken, requireUser, deleteUser);
+router.get("/signout", verifyToken, requireUser, signOut);
+router.post("/editUserProfile/:id", verifyToken, requireUser, editUserProfile);
+router.post("/razorpay", verifyToken, requireUser, razorpayOrder);
+router.post("/bookCar", verifyToken, requireUser, BookCar);
+router.post("/findBookingsOfUser", verifyToken, requireUser, findBookingsOfUser);
+router.post("/latestbookings", verifyToken, requireUser, latestbookings);
+router.post("/sendBookingDetailsEamil", verifyToken, requireUser, sendBookingDetailsEamil);
 
-//Removed verifyToken middleware because of (cors) unable to set and access cookie since i am using free domain from vercel
-
-router.post('/update/:id',updateUser)
-router.delete('/delete/:id',deleteUser)
-router.get('/signout',signOut)
-router.get('/listAllVehicles',listAllVehicles)
-router.post('/showVehicleDetails',showVehicleDetails)
-router.post('/editUserProfile/:id',editUserProfile)
-// router.post('/searchCar',searchCar)
-// router.post('/checkAvailability',checkAvailability)
-router.post('/razorpay',verifyToken,razorpayOrder)
-router.post('/bookCar',BookCar)
-router.post('/filterVehicles',filterVehicles)
-router.post('/getVehiclesWithoutBooking',getVehiclesWithoutBooking,showAllVariants)
-router.post('/showSingleofSameModel',getVehiclesWithoutBooking,showOneofkind)
-router.post('/findBookingsOfUser',findBookingsOfUser)
-router.post('/latestbookings',latestbookings)
-router.post('/sendBookingDetailsEamil',sendBookingDetailsEamil)
-
-
-
-
-
-
-
-
-
-export default router
+export default router;
